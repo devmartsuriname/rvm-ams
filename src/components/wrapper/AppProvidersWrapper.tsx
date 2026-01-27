@@ -5,6 +5,7 @@ import { ChildrenType } from '@/types/component-props'
 import { HelmetProvider } from 'react-helmet-async'
 
 import { ToastContainer } from 'react-toastify'
+import 'react-toastify/dist/ReactToastify.css'
 
 const AppProvidersWrapper = ({ children }: ChildrenType) => {
   return (
