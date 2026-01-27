@@ -1,87 +1,106 @@
 
-# Final UI Demo Cleanup Plan — Pre-Phase 0
+# Phase 0 — Project Initialization & Context Lock
 
 ## Executive Summary
 
-This plan details the minimal, cosmetic changes required to clear demo notifications and remove the "Pricing" option from the profile dropdown. All changes preserve Darkone 1:1 layout structure.
+This plan establishes the authoritative documentation baseline for **AMS – RVM Core (v1)** by creating the required folder structure and placing all 7 governance documents exactly as provided. No code changes, no implementation, no planning beyond file operations.
 
 ---
 
-## Task 1: Demo Notifications Cleanup
+## Objective
 
-### Current State
-- **File:** `src/assets/data/topbar.ts`
-- Contains 5 demo notification items (Sally Bieber, Gloria Chambers, Jacob Gines, system update, Shawn Bunch)
-- These are displayed in the notifications dropdown
-
-### Required Change
-- Clear the `notificationsData` array to an empty array `[]`
-- This removes all demo notification content while preserving the notification system structure
-
-### File to Modify
-| File | Change |
-|------|--------|
-| `src/assets/data/topbar.ts` | Set `notificationsData` to empty array `[]` |
-
-### Result
-- Notification dropdown will show empty state
-- Bell icon, dropdown component, and "View All Notification" button remain functional
-- Badge count will need to reflect zero (handled by component logic or can be addressed separately)
+Lock the project context by placing the 7 authoritative markdown files into the repository as the single source of truth for all subsequent phases.
 
 ---
 
-## Task 2: Profile Dropdown — Remove "Pricing" Option
+## Folder Structure to Create
 
-### Current State
-- **File:** `src/components/layout/TopNavigationBar/components/ProfileDropdown.tsx`
-- Lines 35-38 contain the "Pricing" dropdown item
-- Current menu structure:
-  - Welcome! (header)
-  - My Account
-  - **Pricing** ← TO BE REMOVED
-  - Help
-  - Lock screen
-  - Logout
-
-### Required Change
-- Remove lines 35-38 (the Pricing DropdownItem)
-
-### File to Modify
-| File | Change |
-|------|--------|
-| `ProfileDropdown.tsx` | Remove the Pricing menu item (lines 35-38) |
-
-### Result
-- Profile dropdown will show: Welcome!, My Account, Help, Lock screen, Logout
-- No structural changes to dropdown logic
+```text
+/Project Docs/
+  └── AMS-RVM/
+        ├── README.md (to be created)
+        ├── ams_rvm_core_scope_governance_v_1.md
+        ├── ams_rvm_bestuurlijke_validatievragen_definitive_short.md
+        ├── prd_ams_rvm_core_v_1.md
+        ├── system_architecture_ams_rvm_core_v_1.md
+        ├── erd_ams_rvm_core_v_1.md
+        ├── rls_role_matrix_ams_rvm_core_v_1.md
+        └── workflow_diagrams_ams_rvm_core_v_1.md
+```
 
 ---
 
-## Technical Implementation Summary
+## Files to be Created (8 total)
 
-| Task | File | Action | Lines Affected |
-|------|------|--------|----------------|
-| 1. Clear notifications | `src/assets/data/topbar.ts` | Replace array with `[]` | Lines 6-30 |
-| 2. Remove Pricing | `src/components/layout/TopNavigationBar/components/ProfileDropdown.tsx` | Delete Pricing item | Lines 35-38 |
+### 1. Folder README
+
+**Path:** `Project Docs/AMS-RVM/README.md`
+
+**Content:**
+```text
+# AMS – RVM Core (v1) — Authoritative Documentation
+
+This folder contains the **7 authoritative documents** for AMS – RVM Core v1.
+
+## Scope Lock
+- **RVM-only.** No VP workflow outside the Chair RVM role as defined.
+- No other Cabinet departments or directorates.
+
+## Execution Model
+- Documentation-first, phase-gated.
+- No implementation may proceed without explicit phase authorization.
+
+## Change Control
+- Any modification to these documents requires explicit new phase authorization.
+- These documents are the **single source of truth** for all design and implementation.
+
+## Document List
+1. ams_rvm_core_scope_governance_v_1.md
+2. ams_rvm_bestuurlijke_validatievragen_definitive_short.md
+3. prd_ams_rvm_core_v_1.md
+4. system_architecture_ams_rvm_core_v_1.md
+5. erd_ams_rvm_core_v_1.md
+6. rls_role_matrix_ams_rvm_core_v_1.md
+7. workflow_diagrams_ams_rvm_core_v_1.md
+```
+
+### 2-8. The 7 Authoritative Documents
+
+Each document will be copied from `user-uploads://` to `Project Docs/AMS-RVM/` with:
+- **Exact filename preservation**
+- **Exact content preservation** (no edits, no formatting changes)
+
+| # | Source File | Target Path |
+|---|-------------|-------------|
+| 1 | `user-uploads://ams_rvm_core_scope_governance_v_1.md` | `Project Docs/AMS-RVM/ams_rvm_core_scope_governance_v_1.md` |
+| 2 | `user-uploads://ams_rvm_bestuurlijke_validatievragen_definitive_short.md` | `Project Docs/AMS-RVM/ams_rvm_bestuurlijke_validatievragen_definitive_short.md` |
+| 3 | `user-uploads://prd_ams_rvm_core_v_1.md` | `Project Docs/AMS-RVM/prd_ams_rvm_core_v_1.md` |
+| 4 | `user-uploads://system_architecture_ams_rvm_core_v_1.md` | `Project Docs/AMS-RVM/system_architecture_ams_rvm_core_v_1.md` |
+| 5 | `user-uploads://erd_ams_rvm_core_v_1.md` | `Project Docs/AMS-RVM/erd_ams_rvm_core_v_1.md` |
+| 6 | `user-uploads://rls_role_matrix_ams_rvm_core_v_1.md` | `Project Docs/AMS-RVM/rls_role_matrix_ams_rvm_core_v_1.md` |
+| 7 | `user-uploads://workflow_diagrams_ams_rvm_core_v_1.md` | `Project Docs/AMS-RVM/workflow_diagrams_ams_rvm_core_v_1.md` |
 
 ---
 
-## Files to be Modified (2 total)
+## What Will NOT Be Done
 
-1. `src/assets/data/topbar.ts`
-2. `src/components/layout/TopNavigationBar/components/ProfileDropdown.tsx`
+- No code generation
+- No UI changes
+- No refactors
+- No schema, RLS, or Supabase work
+- No planning or task breakdown
+- No assumptions beyond the 7 documents
+- Phase 1 will NOT be started
 
 ---
 
-## Files NOT Touched
+## Post-Execution Deliverable
 
-- No layout files
-- No routing files
-- No auth logic or auth pages
-- No Notifications component structure (`Notifications.tsx` remains unchanged)
-- No ProfileDropdown logic (only content removal)
-- No backend/schema changes
-- No new UI elements introduced
+After completion, a Phase 0 completion report will confirm:
+- Folder `/Project Docs/AMS-RVM/` exists
+- 7/7 authoritative documents placed with exact paths
+- README.md created
+- Explicit statement: "No other changes were made. Phase 1 not started."
 
 ---
 
@@ -89,27 +108,9 @@ This plan details the minimal, cosmetic changes required to clear demo notificat
 
 | Rule | Status |
 |------|--------|
-| Darkone 1:1 layout preserved | ✓ Confirmed |
-| /src as authoritative root | ✓ Maintained |
-| No Phase 0 started | ✓ Confirmed |
-| No scope expansion | ✓ Confirmed |
-| Minimal cosmetic changes only | ✓ Confirmed |
-
----
-
-## Expected Visual Result
-
-After implementation:
-- Notifications dropdown will be empty (no demo items)
-- Profile dropdown will show: Welcome! → My Account → Help → Lock screen → Logout
-- All other UI elements unchanged
-
----
-
-## Post-Execution Deliverable
-
-Upon approval and execution, a report will confirm:
-- Demo notifications cleared
-- "Pricing" removed from profile dropdown
-- List of files changed
-- Explicit statement: "Phase 0 has NOT started"
+| Devmart Hard Governance | Active |
+| Guardian Rules | Active |
+| Documentation-first | Enforced |
+| Phase-gated execution | Enforced |
+| /src as application root | Unchanged |
+| Darkone 1:1 parity | Preserved |
