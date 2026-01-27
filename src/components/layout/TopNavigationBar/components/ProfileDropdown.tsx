@@ -33,10 +33,6 @@ const ProfileDropdown = () => {
           <span className="align-middle">My Account</span>
         </DropdownItem>
         <DropdownItem href="">
-          <IconifyIcon icon="solar:wallet-outline" className="align-middle me-2 fs-18" />
-          <span className="align-middle">Pricing</span>
-        </DropdownItem>
-        <DropdownItem href="">
           <IconifyIcon icon="solar:help-outline" className="align-middle me-2 fs-18" />
           <span className="align-middle">Help</span>
         </DropdownItem>
