@@ -15,7 +15,7 @@ const page = () => {
               <LeftSideBarToggle />
               <form className="app-search d-none d-md-block me-auto">
                 <div className="position-relative">
-                  <input type="search" className="form-control" placeholder="admin,widgets..." autoComplete="off" />
+                  <input type="search" className="form-control" placeholder="Search..." autoComplete="off" />
                   <IconifyIcon icon="solar:magnifer-outline" className="search-widget-icon" />
                 </div>
               </form>
