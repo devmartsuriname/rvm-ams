@@ -40,15 +40,17 @@ const Notifications = () => {
         aria-haspopup="true"
         aria-expanded="false">
         <IconifyIcon icon="solar:bell-bing-outline" className="fs-22 align-middle " />
-        <span className="position-absolute topbar-badge fs-10 translate-middle badge bg-danger rounded-pill">
-          5<span className="visually-hidden">unread messages</span>
-        </span>
+        {notificationList.length > 0 && (
+          <span className="position-absolute topbar-badge fs-10 translate-middle badge bg-danger rounded-pill">
+            {notificationList.length}<span className="visually-hidden">unread messages</span>
+          </span>
+        )}
       </DropdownToggle>
       <DropdownMenu className="py-0 dropdown-lg dropdown-menu-end" aria-labelledby="page-header-notifications-dropdown">
         <div className="p-3 border-top-0 border-start-0 border-end-0 border-dashed border">
           <Row className="align-items-center">
             <Col>
-              <h6 className="m-0 fs-16 fw-semibold"> Notifications (5)</h6>
+              <h6 className="m-0 fs-16 fw-semibold"> Notifications ({notificationList.length})</h6>
             </Col>
             <Col xs={'auto'}>
               <Link to="" className="text-dark text-decoration-underline">
