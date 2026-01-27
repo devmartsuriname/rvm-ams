@@ -1,143 +1,75 @@
 
-# UI Baseline Hardening — Diagnostics & Execution Plan
+# Final UI Demo Cleanup Plan — Pre-Phase 0
 
 ## Executive Summary
 
-This document provides the complete analysis and proposed fixes for the three identified issues in the RVM-AMS baseline. All fixes are cosmetic/stability-focused and preserve Darkone 1:1 structure compliance.
+This plan details the minimal, cosmetic changes required to clear demo notifications and remove the "Pricing" option from the profile dropdown. All changes preserve Darkone 1:1 layout structure.
 
 ---
 
-## Section 1: Blank Screen / White Screen Risk
+## Task 1: Demo Notifications Cleanup
 
-### Diagnosis: VERIFIED SAFE
+### Current State
+- **File:** `src/assets/data/topbar.ts`
+- Contains 5 demo notification items (Sally Bieber, Gloria Chambers, Jacob Gines, system update, Shawn Bunch)
+- These are displayed in the notifications dropdown
 
-**Analysis performed:**
-- Reviewed provider chain: `BrowserRouter` → `AppProvidersWrapper` → `AuthProvider` → `LayoutProvider` → `NotificationProvider`
-- Verified routing logic in `src/routes/router.tsx`
-- Checked `AdminLayout.tsx` for conditional rendering issues
+### Required Change
+- Clear the `notificationsData` array to an empty array `[]`
+- This removes all demo notification content while preserving the notification system structure
 
-**Findings:**
-| Component | Status | Notes |
-|-----------|--------|-------|
-| Root layout providers | Mounted correctly | Proper nesting order verified |
-| Dashboard page | Independent | No longer imports `Cards`, `Chart`, or `User` demo components |
-| Demo data dependency | Eliminated | Dashboard placeholder has no data imports |
-| ErrorBoundary | Present | Wraps router and page content; prevents blank crash |
-| Suspense fallbacks | Present | `LoadingFallback` renders visible spinner |
+### File to Modify
+| File | Change |
+|------|--------|
+| `src/assets/data/topbar.ts` | Set `notificationsData` to empty array `[]` |
 
-**Root cause risk:** None identified. The previous cleanup removed demo component imports from the dashboard. The current placeholder is self-contained.
-
-**Required action:** NONE — No fix required.
-
-**Outcome:** App renders visible layout shell. Dashboard placeholder does not cause blank screen.
+### Result
+- Notification dropdown will show empty state
+- Bell icon, dropdown component, and "View All Notification" button remain functional
+- Badge count will need to reflect zero (handled by component logic or can be addressed separately)
 
 ---
 
-## Section 2: Demo Data Hygiene (Dead Code Risk)
+## Task 2: Profile Dropdown — Remove "Pricing" Option
 
-### Diagnosis: ORPHANED FILES IDENTIFIED
+### Current State
+- **File:** `src/components/layout/TopNavigationBar/components/ProfileDropdown.tsx`
+- Lines 35-38 contain the "Pricing" dropdown item
+- Current menu structure:
+  - Welcome! (header)
+  - My Account
+  - **Pricing** ← TO BE REMOVED
+  - Help
+  - Lock screen
+  - Logout
 
-**Analysis performed:**
-- Searched all TypeScript/React imports for demo data references
-- Cross-referenced `src/app/(admin)/dashboards/data.ts`, `src/helpers/data.ts`, `src/assets/data/other.ts`, `src/assets/data/social.ts`, `src/assets/data/topbar.ts`
+### Required Change
+- Remove lines 35-38 (the Pricing DropdownItem)
 
-**Findings:**
+### File to Modify
+| File | Change |
+|------|--------|
+| `ProfileDropdown.tsx` | Remove the Pricing menu item (lines 35-38) |
 
-| File | Import Status | Used By | Classification |
-|------|---------------|---------|----------------|
-| `src/app/(admin)/dashboards/data.ts` | NOT IMPORTED | None | **SAFE TO REMOVE** |
-| `src/app/(admin)/dashboards/components/Cards.tsx` | NOT IMPORTED | None | **SAFE TO REMOVE** |
-| `src/app/(admin)/dashboards/components/Chart.tsx` | NOT IMPORTED | None | **SAFE TO REMOVE** |
-| `src/app/(admin)/dashboards/components/SaleChart.tsx` | NOT IMPORTED | None | **SAFE TO REMOVE** |
-| `src/app/(admin)/dashboards/components/CountryMap.tsx` | NOT IMPORTED | None | **SAFE TO REMOVE** |
-| `src/app/(admin)/dashboards/components/User.tsx` | NOT IMPORTED | None | **SAFE TO REMOVE** |
-| `src/helpers/data.ts` | Functions NOT IMPORTED | None externally | **SAFE TO REMOVE** |
-| `src/assets/data/social.ts` | IMPORTED by helpers/data.ts only | Dead chain | **SAFE TO REMOVE** |
-| `src/assets/data/other.ts` | IMPORTED by helpers/data.ts AND gridjs table | Active usage | **MUST KEEP** |
-| `src/assets/data/topbar.ts` | IMPORTED by `Notifications.tsx` | Active usage | **MUST KEEP** |
-
-**Summary:**
-- **Safe to remove (7 files):**
-  - `src/app/(admin)/dashboards/data.ts`
-  - `src/app/(admin)/dashboards/components/Cards.tsx`
-  - `src/app/(admin)/dashboards/components/Chart.tsx`
-  - `src/app/(admin)/dashboards/components/SaleChart.tsx`
-  - `src/app/(admin)/dashboards/components/CountryMap.tsx`
-  - `src/app/(admin)/dashboards/components/User.tsx`
-  - `src/helpers/data.ts`
-  - `src/assets/data/social.ts`
-
-- **Must keep (2 files):**
-  - `src/assets/data/other.ts` — used by GridJS table demo component
-  - `src/assets/data/topbar.ts` — used by topbar Notifications dropdown
-
-- **Uncertain:** None
-
-**Required action:** NO DELETION YET — Await explicit approval before removing any files.
+### Result
+- Profile dropdown will show: Welcome!, My Account, Help, Lock screen, Logout
+- No structural changes to dropdown logic
 
 ---
 
-## Section 3: Toast / Notification UI Bug (CRITICAL)
+## Technical Implementation Summary
 
-### Diagnosis: CONFIRMED — ROOT CAUSE IDENTIFIED
-
-**Analysis performed:**
-- Searched entire codebase for `ReactToastify.css` import
-- Verified `react-toastify` package is installed (v10.0.6)
-- Checked `AppProvidersWrapper.tsx` where `ToastContainer` is rendered
-
-**Findings:**
-| Check | Status |
-|-------|--------|
-| `react-toastify` installed | YES (v10.0.6) |
-| `ToastContainer` rendered | YES (in `AppProvidersWrapper.tsx`) |
-| `ReactToastify.css` imported | **NO — MISSING** |
-
-**Root cause:** The base CSS for react-toastify is NOT imported anywhere in the application. Without `react-toastify/dist/ReactToastify.css`:
-- `.Toastify__toast-icon` has no sizing constraints
-- SVG icons expand uncontrollably
-- Toast layout breaks visually
-
-**Approved fix path:** Import the Toastify base CSS once at the correct global entry point.
-
-### Proposed Implementation
-
-**File to modify:** `src/components/wrapper/AppProvidersWrapper.tsx`
-
-**Change:** Add single import statement after existing imports:
-```text
-import 'react-toastify/dist/ReactToastify.css'
-```
-
-**Location:** Line 7, immediately before the `ToastContainer` import or after it.
-
-**What this achieves:**
-- Restores correct toast icon sizing constraints
-- Fixes SVG overflow issue
-- Zero visual regressions (base styles only)
-- No theme overrides or custom SCSS
-
-**What will NOT be done:**
-- No Toastify theming
-- No style overrides
-- No custom SCSS
-- No changes to toast usage in components
+| Task | File | Action | Lines Affected |
+|------|------|--------|----------------|
+| 1. Clear notifications | `src/assets/data/topbar.ts` | Replace array with `[]` | Lines 6-30 |
+| 2. Remove Pricing | `src/components/layout/TopNavigationBar/components/ProfileDropdown.tsx` | Delete Pricing item | Lines 35-38 |
 
 ---
 
-## Technical Summary
+## Files to be Modified (2 total)
 
-| Section | Issue | Root Cause | Action Required | Status |
-|---------|-------|------------|-----------------|--------|
-| 1. Blank Screen | Potential render blocking | None found — cleanup complete | NONE | SAFE |
-| 2. Demo Data | Orphaned files | Imports removed but files remain | LIST ONLY (awaiting approval) | DIAGNOSED |
-| 3. Toast UI Bug | SVG icon overflow | Missing `ReactToastify.css` import | ADD IMPORT | READY TO FIX |
-
----
-
-## Files to be Modified (Section 3 Only)
-
-- `src/components/wrapper/AppProvidersWrapper.tsx` — Add CSS import
+1. `src/assets/data/topbar.ts`
+2. `src/components/layout/TopNavigationBar/components/ProfileDropdown.tsx`
 
 ---
 
@@ -145,30 +77,39 @@ import 'react-toastify/dist/ReactToastify.css'
 
 - No layout files
 - No routing files
-- No auth logic
-- No backend/schema
-- No Supabase integration
-- No new features
+- No auth logic or auth pages
+- No Notifications component structure (`Notifications.tsx` remains unchanged)
+- No ProfileDropdown logic (only content removal)
+- No backend/schema changes
+- No new UI elements introduced
 
 ---
 
 ## Governance Compliance
 
-- Darkone 1:1 structure: Preserved
-- /src as authoritative root: Maintained
-- No Phase 0 started: Confirmed
-- No scope expansion: Confirmed
-- No refactors beyond approved scope: Confirmed
+| Rule | Status |
+|------|--------|
+| Darkone 1:1 layout preserved | ✓ Confirmed |
+| /src as authoritative root | ✓ Maintained |
+| No Phase 0 started | ✓ Confirmed |
+| No scope expansion | ✓ Confirmed |
+| Minimal cosmetic changes only | ✓ Confirmed |
 
 ---
 
-## Awaiting Authorization
+## Expected Visual Result
 
-1. **Section 3 (Toast Fix):** Ready for implementation upon approval
-2. **Section 2 (File Deletion):** Awaiting explicit approval before any removal
+After implementation:
+- Notifications dropdown will be empty (no demo items)
+- Profile dropdown will show: Welcome! → My Account → Help → Lock screen → Logout
+- All other UI elements unchanged
 
 ---
 
-## HARD STOP
+## Post-Execution Deliverable
 
-Phase 0 has NOT started. Awaiting further instructions.
+Upon approval and execution, a report will confirm:
+- Demo notifications cleared
+- "Pricing" removed from profile dropdown
+- List of files changed
+- Explicit statement: "Phase 0 has NOT started"
