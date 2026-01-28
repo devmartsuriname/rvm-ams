@@ -6,6 +6,7 @@ import * as yup from 'yup'
 
 import { supabase } from '@/integrations/supabase/client'
 import { useNotificationContext } from '@/context/useNotificationContext'
+import { useAuthContext } from '@/context/useAuthContext'
 
 const useSignIn = () => {
   const [loading, setLoading] = useState(false)
@@ -13,6 +14,7 @@ const useSignIn = () => {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const { showNotification } = useNotificationContext()
+  const { isAuthenticated } = useAuthContext()
   const hasRedirectedRef = useRef(false)
 
   const loginFormSchema = yup.object({
@@ -36,37 +38,32 @@ const useSignIn = () => {
     
     const redirectLink = searchParams.get('redirectTo')
     if (redirectLink) navigate(redirectLink)
-    else navigate('/')
+    else navigate('/dashboards')
   }, [searchParams, navigate])
 
   /**
-   * Listen for auth state changes to detect when login is complete.
-   * This avoids depending on useAuthContext which may have timing issues.
+   * Redirect if already authenticated (e.g., page refresh while logged in)
    */
   useEffect(() => {
-    if (!loginSuccess) return
+    if (isAuthenticated && !loginSuccess) {
+      redirectUser()
+    }
+  }, [isAuthenticated, loginSuccess, redirectUser])
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === 'SIGNED_IN' && session) {
-        console.info('[SignIn] Auth state confirmed SIGNED_IN, redirecting...')
-        redirectUser()
-      }
-    })
-
-    // Also check current session in case event already fired
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) {
-        console.info('[SignIn] Session exists, redirecting...')
-        redirectUser()
-      }
-    })
-
-    return () => subscription.unsubscribe()
-  }, [loginSuccess, redirectUser])
+  /**
+   * Wait for BOTH loginSuccess AND isAuthenticated before navigating.
+   * This ensures AuthContext has finished its async DB queries.
+   */
+  useEffect(() => {
+    if (loginSuccess && isAuthenticated) {
+      console.info('[SignIn] Auth context confirmed, redirecting...')
+      redirectUser()
+    }
+  }, [loginSuccess, isAuthenticated, redirectUser])
 
   /**
    * Login handler - calls signInWithPassword
-   * Navigation happens reactively via the auth state listener above
+   * Navigation happens reactively via the useEffect watching isAuthenticated
    */
   const login = handleSubmit(async (values: LoginFormFields) => {
     setLoading(true)
@@ -86,7 +83,7 @@ const useSignIn = () => {
         return
       }
 
-      // Success - signal login success, auth listener will handle redirect
+      // Success - signal login success, useEffect will handle redirect when AuthContext is ready
       showNotification({ 
         message: 'Successfully logged in. Redirecting...', 
         variant: 'success' 
