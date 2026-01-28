@@ -35,10 +35,17 @@ This document provides a **task-level breakdown** per phase for AMS – RVM Core
 
 ## 3. Phase 1: Foundation Layer
 
-### P1-001: Enable Lovable Cloud
-- **Description:** Enable backend infrastructure (Supabase)
+### P1-001: Enable External Supabase
+- **Description:** Connect to external Supabase project and configure environment
 - **Dependencies:** None
-- **Acceptance:** Supabase project accessible, environment variables set
+- **Acceptance:** External Supabase project accessible, `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` configured, migration folder structure created (`/supabase/migrations/`)
+- **Estimated:** 2
+- **Phase:** 1
+
+### P1-001a: Environment Variable Setup
+- **Description:** Configure environment variables for all environments (local, dev, staging, prod)
+- **Dependencies:** P1-001
+- **Acceptance:** `.env.local` template created, documentation for Hostinger VPS env vars prepared
 - **Estimated:** 1
 - **Phase:** 1
 

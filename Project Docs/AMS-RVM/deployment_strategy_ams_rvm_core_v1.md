@@ -9,7 +9,10 @@ This document defines the **environment configuration**, **deployment workflow**
 
 **Source Authority:**
 - `system_architecture_ams_rvm_core_v_1.md`
-- Lovable Cloud operational model
+- External Supabase operational model
+
+**Platform:** External Supabase (managed Supabase project)
+**Future Deployment Target:** Hostinger VPS (acknowledged, no deployment work in current phases)
 
 **Scope Expansion:** None. Operationalization of deployment assumptions.
 
@@ -35,7 +38,7 @@ This document defines the **environment configuration**, **deployment workflow**
 
 ## 3. Deployment Model
 
-### 3.1 Lovable Deployment Flow
+### 3.1 External Supabase Deployment Flow
 
 ```
 ┌─────────────┐     ┌─────────────┐     ┌─────────────┐
@@ -45,9 +48,37 @@ This document defines the **environment configuration**, **deployment workflow**
        │                   │                   │
        ▼                   ▼                   ▼
    Code changes      Verification       Production
-   Schema changes    RLS testing        User access
+   SQL migrations    RLS testing        User access
    UI updates        Data validation    Audit active
 ```
+
+### 3.2 External Supabase Project Configuration
+
+| Requirement | Description |
+|-------------|-------------|
+| Project Reference | To be provided by project owner |
+| Region | Select based on user location (recommended: closest to Suriname) |
+| Supabase URL | `https://<project-ref>.supabase.co` |
+| Anon Key | Public API key for frontend |
+| Service Role Key | Server-only (never exposed in frontend) |
+
+### 3.3 Environment Variable Strategy
+
+| Environment | Configuration Method | Variables |
+|-------------|---------------------|-----------|
+| Local Development | `.env.local` (gitignored) | `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` |
+| Development/Staging | Supabase project settings | Same as above |
+| Production (Hostinger VPS) | VPS environment variables | Same + `SUPABASE_SERVICE_ROLE_KEY` (server-side only) |
+
+### 3.4 Migration Discipline
+
+| Rule | Enforcement |
+|------|-------------|
+| All schema changes tracked | Versioned SQL files in `/supabase/migrations/` |
+| No ad-hoc console-only changes | All production changes via migration files |
+| Migration naming | `YYYYMMDDHHMMSS_description.sql` |
+| Review requirement | Each migration requires review before execution |
+| Rollback preparation | Each migration should have corresponding rollback SQL |
 
 ### 3.2 Deployment Phases
 
@@ -176,10 +207,11 @@ Create manual backup before:
 
 ### 8.2 Secret Management
 
-- Secrets stored in Lovable Cloud secrets
+- Secrets stored in External Supabase project settings
 - Never committed to repository
 - Rotated on schedule or incident
 - Separate secrets per environment
+- Service role key: server-side only (edge functions)
 
 ### 8.3 Network Security
 
@@ -250,9 +282,10 @@ Rollback if:
 ## 11. Phase-Specific Deployment Notes
 
 ### Phase 1: Foundation
-- First Lovable Cloud enablement
-- Initial schema deployment
-- Auth configuration
+- External Supabase project connection
+- Initial schema deployment via SQL migrations
+- Auth configuration (email/password)
+- Environment variable setup for all environments
 
 ### Phase 5: Decision Management (Critical)
 - Chair RVM gate must be verified before publish

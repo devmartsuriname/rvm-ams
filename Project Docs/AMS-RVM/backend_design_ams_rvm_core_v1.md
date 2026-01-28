@@ -140,6 +140,37 @@ CREATE TABLE user_role (
   assigned_at TIMESTAMPTZ DEFAULT now(),
   PRIMARY KEY (user_id, role_code)
 );
+
+-- Super Admin Bootstrap (TESTING/BOOTSTRAP MECHANISM ONLY)
+-- Purpose: Allow controlled "full rights" test identity for verification runs
+-- WARNING: This table is NOT for production role management
+-- Production safeguard: is_active must be FALSE in production OR table not deployed
+CREATE TABLE super_admin_bootstrap (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  auth_id UUID UNIQUE REFERENCES auth.users(id) ON DELETE CASCADE,
+  email TEXT NOT NULL,
+  is_active BOOLEAN DEFAULT true,
+  purpose TEXT DEFAULT 'testing/bootstrap',
+  created_at TIMESTAMPTZ DEFAULT now(),
+  expires_at TIMESTAMPTZ  -- Optional: auto-expiry for test accounts
+);
+
+-- Super Admin helper function (Test environment ONLY)
+CREATE OR REPLACE FUNCTION is_super_admin()
+RETURNS BOOLEAN AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM super_admin_bootstrap
+    WHERE auth_id = auth.uid()
+    AND is_active = true
+    AND (expires_at IS NULL OR expires_at > now())
+  );
+$$ LANGUAGE sql SECURITY DEFINER STABLE;
+
+-- Note: RLS policies may include `OR is_super_admin()` clause for Test environment
+-- This bypass is DISABLED in production by:
+-- 1. Not deploying the table to production, OR
+-- 2. Setting all is_active = false in production, OR
+-- 3. Removing the OR clause from production RLS policies
 ```
 
 ### 4.2 Taxonomy
