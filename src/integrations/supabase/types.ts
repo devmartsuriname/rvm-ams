@@ -14,13 +14,127 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      app_role: {
+        Row: {
+          code: string
+          description: string | null
+          name: string
+        }
+        Insert: {
+          code: string
+          description?: string | null
+          name: string
+        }
+        Update: {
+          code?: string
+          description?: string | null
+          name?: string
+        }
+        Relationships: []
+      }
+      app_user: {
+        Row: {
+          auth_id: string | null
+          created_at: string | null
+          email: string
+          full_name: string
+          id: string
+          is_active: boolean | null
+          updated_at: string | null
+        }
+        Insert: {
+          auth_id?: string | null
+          created_at?: string | null
+          email: string
+          full_name: string
+          id?: string
+          is_active?: boolean | null
+          updated_at?: string | null
+        }
+        Update: {
+          auth_id?: string | null
+          created_at?: string | null
+          email?: string
+          full_name?: string
+          id?: string
+          is_active?: boolean | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      super_admin_bootstrap: {
+        Row: {
+          auth_id: string | null
+          created_at: string | null
+          email: string
+          expires_at: string | null
+          id: string
+          is_active: boolean | null
+          purpose: string | null
+        }
+        Insert: {
+          auth_id?: string | null
+          created_at?: string | null
+          email: string
+          expires_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          purpose?: string | null
+        }
+        Update: {
+          auth_id?: string | null
+          created_at?: string | null
+          email?: string
+          expires_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          purpose?: string | null
+        }
+        Relationships: []
+      }
+      user_role: {
+        Row: {
+          assigned_at: string | null
+          role_code: string
+          user_id: string
+        }
+        Insert: {
+          assigned_at?: string | null
+          role_code: string
+          user_id: string
+        }
+        Update: {
+          assigned_at?: string | null
+          role_code?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_role_role_code_fkey"
+            columns: ["role_code"]
+            isOneToOne: false
+            referencedRelation: "app_role"
+            referencedColumns: ["code"]
+          },
+          {
+            foreignKeyName: "user_role_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "app_user"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      get_current_user_id: { Args: never; Returns: string }
+      get_user_roles: { Args: never; Returns: string[] }
+      has_any_role: { Args: { required_roles: string[] }; Returns: boolean }
+      has_role: { Args: { required_role: string }; Returns: boolean }
+      is_super_admin: { Args: never; Returns: boolean }
     }
     Enums: {
       [_ in never]: never

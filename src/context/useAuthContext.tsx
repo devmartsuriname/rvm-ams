@@ -24,6 +24,21 @@ export function useAuthContext() {
 const authSessionKey = '_DARKONE_AUTH_KEY_'
 const localStorageKey = '_DARKONE_AUTH_FALLBACK_'
 
+// ============================================
+// PHASE 2 DEV BYPASS — TEMPORARY
+// Allows admin shell to load without real auth
+// Remove when Supabase auth is fully implemented
+// ============================================
+const DEV_BYPASS_KEY = '_AMS_RVM_DEV_MODE_'
+
+const isDevBypass = (): boolean => {
+  try {
+    return localStorage.getItem(DEV_BYPASS_KEY) === 'true'
+  } catch {
+    return false
+  }
+}
+
 // Check if cookies are accessible (may fail in iframe/editor environments)
 const isCookieAccessible = (): boolean => {
   try {
@@ -69,6 +84,11 @@ export function AuthProvider({ children }: ChildrenType) {
   }
 
   const checkIsAuthenticated = (): boolean => {
+    // Phase 2 dev bypass - allows shell access without real auth
+    if (isDevBypass()) {
+      return true
+    }
+    
     // Try cookies first (primary)
     if (useCookies && hasCookie(authSessionKey)) {
       return true
