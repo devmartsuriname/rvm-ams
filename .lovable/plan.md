@@ -1,406 +1,327 @@
 
-# Phase 2 Implementation Plan — Core Domain (DB Foundation)
+# Phase 2B Implementation Plan — REVISED (Scope-Aligned)
 
 ## Authorization Reference
 - **Project:** AMS–RVM Core (v1)
-- **Phase:** 2 (Core Domain — DB Foundation)
+- **Phase:** 2B (Core Domain — DATA MODEL ONLY)
 - **Date:** 2026-01-28
-- **Scope:** Schema + RLS Preparation (No UI, No Business Logic)
+- **Revision:** v2 (Scope Correction Applied)
 
 ---
 
-## Pre-Phase Assessment
+## CORRECTION SUMMARY
 
-### Current State
-| Component | Status |
-|-----------|--------|
-| External Supabase | Connected (`smjjpxhgnomucvmmllaj`) |
-| Database Schema | Empty (verified) |
-| Fake Auth Backend | Active in `src/App.tsx` (MUST DISABLE) |
-| Migration Folder | Created (`/supabase/migrations/`) |
+### Correction 1: Immutability Triggers — DEFERRED
 
----
+| Trigger | Original Plan | Corrected Status | Deferred To |
+|---------|---------------|------------------|-------------|
+| `prevent_decision_modification()` | Step 6 | **REMOVED** | Phase 5 (Decision Management) |
+| `prevent_audit_modification()` | Step 9 | **REMOVED** | Phase 8 (Audit Finalization) |
+| `prevent_audit_deletion()` | Step 9 | **REMOVED** | Phase 8 (Audit Finalization) |
 
-## Implementation Sequence (Numbered Steps)
+**Rationale:** These are governance/behavior enforcement mechanisms, not data model definitions. They enforce business rules that belong to their respective domain phases.
 
-### Step 1: DISABLE FAKE AUTH BACKEND (Critical First Step)
+### Correction 2: RLS Policies — REDUCED TO BASELINE
 
-**Files to Modify:**
-1. `src/App.tsx` — Remove `configureFakeBackend()` call
-2. `src/helpers/fake-backend.ts` — Keep file but export empty function (preserve template parity)
+| Original Plan | Corrected Status |
+|---------------|------------------|
+| Full role-based CRUD matrix per table | **REMOVED** |
+| Decision-state-dependent policies | **REMOVED** |
+| Audit-readonly semantics | **REMOVED** |
+| Role-specific INSERT/UPDATE guards | **REMOVED** |
 
-**Technical Shim for Shell Loading:**
-- Modify `src/context/useAuthContext.tsx` to support a "development bypass" mode
-- This allows the admin shell to load without real authentication (temporary Phase 2 only)
-- Uses localStorage flag `_AMS_RVM_DEV_MODE_` to bypass auth check
-- NO new UI screens, NO styling changes
-
-**Impact Assessment:**
-- Sign-in form will remain visible (Darkone UI 1:1)
-- Sign-in will no longer function (expected)
-- Admin routes will load via dev bypass shim
-- Users will see existing auth pages but cannot use fake credentials
+**Baseline RLS (Phase 2B scope):**
+- Enable RLS on all tables
+- Deny-by-default for anonymous
+- Super-admin bypass for testing/bootstrap
+- Authenticated SELECT for reference data only
 
 ---
 
-### Step 2: CREATE PRE-PHASE RESTORE POINT
+## REVISED IMPLEMENTATION SEQUENCE
 
-**Restore Point:** `RP-P2-pre-20260128`
+### Step 1: CREATE PRE-PHASE RESTORE POINT
+
+**Restore Point:** `RP-P2B-pre-20260128`
 
 Contents:
-- Codebase snapshot reference
-- Database state: Empty public schema
-- Fake Auth status: Active (before disable)
+- Database state: Phase 2 identity schema deployed
+- No domain enums or tables yet
 
 ---
 
-### Step 3: CREATE IDENTITY SCHEMA MIGRATION
+### Step 2: CREATE ENUM TYPES
 
-**Migration File:** `supabase/migrations/20260128_001_identity_schema.sql`
+**Migration File:** `20260128_001_enums.sql`
 
-**Contents (from Backend Design):**
-
-```sql
--- ============================================
--- PHASE 2: IDENTITY & ACCESS SCHEMA
--- AMS-RVM Core (v1)
--- ============================================
-
--- 3.1 Users Table
-CREATE TABLE app_user (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  auth_id UUID UNIQUE REFERENCES auth.users(id) ON DELETE SET NULL,
-  email TEXT UNIQUE NOT NULL,
-  full_name TEXT NOT NULL,
-  is_active BOOLEAN DEFAULT true,
-  created_at TIMESTAMPTZ DEFAULT now(),
-  updated_at TIMESTAMPTZ DEFAULT now()
-);
-
--- 3.2 Roles Table (9 RVM Roles)
-CREATE TABLE app_role (
-  code TEXT PRIMARY KEY,
-  name TEXT NOT NULL,
-  description TEXT
-);
-
--- 3.3 User-Role Mapping
-CREATE TABLE user_role (
-  user_id UUID REFERENCES app_user(id) ON DELETE CASCADE,
-  role_code TEXT REFERENCES app_role(code) ON DELETE CASCADE,
-  assigned_at TIMESTAMPTZ DEFAULT now(),
-  PRIMARY KEY (user_id, role_code)
-);
-
--- 3.4 Super Admin Bootstrap (Test/Bootstrap ONLY)
-CREATE TABLE super_admin_bootstrap (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  auth_id UUID UNIQUE REFERENCES auth.users(id) ON DELETE CASCADE,
-  email TEXT NOT NULL,
-  is_active BOOLEAN DEFAULT true,
-  purpose TEXT DEFAULT 'testing/bootstrap',
-  created_at TIMESTAMPTZ DEFAULT now(),
-  expires_at TIMESTAMPTZ
-);
-```
+12 enum types (unchanged from original plan):
+- `service_type` (proposal, missive)
+- `proposal_subtype` (OPA, ORAG)
+- `urgency_level` (regular, urgent, special)
+- `dossier_status` (draft, registered, in_preparation, scheduled, decided, archived, cancelled)
+- `meeting_type` (regular, urgent, special)
+- `meeting_status` (draft, published, closed)
+- `agenda_item_status` (scheduled, presented, withdrawn, moved)
+- `decision_status` (approved, deferred, rejected, pending)
+- `document_type` (proposal, missive, attachment, decision_list, minutes, other)
+- `task_status` (todo, in_progress, blocked, done, cancelled)
+- `task_priority` (normal, high, urgent)
+- `task_type` (intake, dossier_management, agenda_prep, reporting, review, distribution, other)
+- `confidentiality_level` (standard_confidential, restricted, highly_restricted)
 
 ---
 
-### Step 4: CREATE RLS HELPER FUNCTIONS
+### Step 3: CREATE TAXONOMY TABLE
 
-**Migration File:** `supabase/migrations/20260128_002_rls_functions.sql`
+**Migration File:** `20260128_002_taxonomy.sql`
 
-```sql
--- ============================================
--- RLS HELPER FUNCTIONS
--- ============================================
+**Table:** `missive_keyword`
+- Standard columns: id, code, label, description, is_active, created_at
 
--- Get current user's app_user id
-CREATE OR REPLACE FUNCTION get_current_user_id()
-RETURNS UUID AS $$
-  SELECT id FROM app_user WHERE auth_id = auth.uid();
-$$ LANGUAGE sql SECURITY DEFINER STABLE;
-
--- Get current user's roles as array
-CREATE OR REPLACE FUNCTION get_user_roles()
-RETURNS TEXT[] AS $$
-  SELECT COALESCE(ARRAY_AGG(role_code), ARRAY[]::TEXT[])
-  FROM user_role
-  WHERE user_id = (
-    SELECT id FROM app_user WHERE auth_id = auth.uid()
-  );
-$$ LANGUAGE sql SECURITY DEFINER STABLE;
-
--- Check if user has specific role
-CREATE OR REPLACE FUNCTION has_role(required_role TEXT)
-RETURNS BOOLEAN AS $$
-  SELECT required_role = ANY(get_user_roles());
-$$ LANGUAGE sql SECURITY DEFINER STABLE;
-
--- Check if user has any of the specified roles
-CREATE OR REPLACE FUNCTION has_any_role(required_roles TEXT[])
-RETURNS BOOLEAN AS $$
-  SELECT get_user_roles() && required_roles;
-$$ LANGUAGE sql SECURITY DEFINER STABLE;
-
--- Super Admin check (Test environment ONLY)
-CREATE OR REPLACE FUNCTION is_super_admin()
-RETURNS BOOLEAN AS $$
-  SELECT EXISTS (
-    SELECT 1 FROM super_admin_bootstrap
-    WHERE auth_id = auth.uid()
-    AND is_active = true
-    AND (expires_at IS NULL OR expires_at > now())
-  );
-$$ LANGUAGE sql SECURITY DEFINER STABLE;
-```
+**NO TRIGGERS** (data model only)
 
 ---
 
-### Step 5: SEED ROLE REFERENCE DATA
+### Step 4: CREATE DOSSIER & ITEM TABLES
 
-**Migration File:** `supabase/migrations/20260128_003_seed_roles.sql`
+**Migration File:** `20260128_003_dossier.sql`
 
-```sql
--- ============================================
--- SEED: RVM ROLE DEFINITIONS
--- 9 Independent Roles (No Hierarchy)
--- ============================================
+**Table:** `rvm_dossier`
+- All columns as originally specified
+- CHECK constraints for data integrity:
+  - `proposal_requires_subtype`
+  - `missive_requires_keyword`
 
-INSERT INTO app_role (code, name, description) VALUES
-  ('chair_rvm', 'Chair of the Council of Ministers', 
-   'Final approval authority for RVM decisions'),
-  ('secretary_rvm', 'Secretary RVM', 
-   'Procedural and reporting authority'),
-  ('deputy_secretary', 'Deputy Secretary / Coordinator', 
-   'Operational coordination'),
-  ('admin_intake', 'Administration – Intake', 
-   'Registration of incoming items'),
-  ('admin_dossier', 'Administration – Dossier Management', 
-   'Dossier preparation & tracking'),
-  ('admin_agenda', 'Administration – Agenda & Convocation', 
-   'Agenda preparation'),
-  ('admin_reporting', 'Administration – Decision Lists & Reports', 
-   'Decision lists and reporting'),
-  ('audit_readonly', 'Audit', 
-   'Read-only access for control bodies'),
-  ('rvm_sys_admin', 'System Administrator', 
-   'Technical administration (no decision authority)');
-```
+**Table:** `rvm_item`
+- All columns as originally specified
+
+**Sequence:** `dossier_number_seq` for auto-numbering
+**Trigger:** `generate_dossier_number()` — This is a DATA GENERATION trigger (not governance), therefore ALLOWED
 
 ---
 
-### Step 6: ENABLE RLS ON IDENTITY TABLES
+### Step 5: CREATE MEETING & AGENDA TABLES
 
-**Migration File:** `supabase/migrations/20260128_004_identity_rls.sql`
+**Migration File:** `20260128_004_meeting.sql`
+
+**Table:** `rvm_meeting`
+- All columns as originally specified
+
+**Table:** `rvm_agenda_item`
+- All columns as originally specified
+- UNIQUE constraint: (meeting_id, agenda_number)
+
+**NO TRIGGERS** (data model only)
+
+---
+
+### Step 6: CREATE DECISION TABLE
+
+**Migration File:** `20260128_005_decision.sql`
+
+**Table:** `rvm_decision`
+- All columns as originally specified
+- `is_final` column present (for future governance trigger)
+
+**REMOVED:** `prevent_decision_modification()` trigger
+**DEFERRED TO:** Phase 5 (Decision Management)
+
+---
+
+### Step 7: CREATE DOCUMENT TABLES
+
+**Migration File:** `20260128_006_document.sql`
+
+**Table:** `rvm_document`
+- All columns as originally specified
+
+**Table:** `rvm_document_version`
+- All columns as originally specified
+- UNIQUE constraint: (document_id, version_number)
+
+**NO TRIGGERS** (data model only)
+
+---
+
+### Step 8: CREATE TASK TABLE
+
+**Migration File:** `20260128_007_task.sql`
+
+**Table:** `rvm_task`
+- All columns as originally specified
+- CHECK constraint: `in_progress_requires_user`
+
+**NO TRIGGERS** (data model only)
+
+---
+
+### Step 9: CREATE AUDIT TABLE
+
+**Migration File:** `20260128_008_audit.sql`
+
+**Table:** `audit_event`
+- All columns as originally specified
+
+**REMOVED:** `prevent_audit_modification()` trigger
+**REMOVED:** `prevent_audit_deletion()` trigger
+**DEFERRED TO:** Phase 8 (Audit Finalization)
+
+---
+
+### Step 10: ENABLE BASELINE RLS
+
+**Migration File:** `20260128_009_baseline_rls.sql`
+
+**Baseline Policy Pattern (all tables):**
 
 ```sql
--- ============================================
--- RLS POLICIES: IDENTITY TABLES
--- ============================================
-
 -- Enable RLS
-ALTER TABLE app_user ENABLE ROW LEVEL SECURITY;
-ALTER TABLE app_role ENABLE ROW LEVEL SECURITY;
-ALTER TABLE user_role ENABLE ROW LEVEL SECURITY;
-ALTER TABLE super_admin_bootstrap ENABLE ROW LEVEL SECURITY;
+ALTER TABLE [table_name] ENABLE ROW LEVEL SECURITY;
 
--- app_user policies
-CREATE POLICY app_user_select ON app_user
+-- Baseline: Deny anonymous, allow super-admin bypass
+CREATE POLICY [table]_baseline_select ON [table_name]
   FOR SELECT TO authenticated
-  USING (
-    auth_id = auth.uid() 
-    OR has_any_role(ARRAY['secretary_rvm', 'deputy_secretary', 'rvm_sys_admin'])
-    OR is_super_admin()
-  );
+  USING (is_super_admin());
 
--- app_role policies (roles are public reference data)
-CREATE POLICY app_role_select ON app_role
-  FOR SELECT TO authenticated
-  USING (true);
+CREATE POLICY [table]_baseline_insert ON [table_name]
+  FOR INSERT TO authenticated
+  WITH CHECK (is_super_admin());
 
--- user_role policies
-CREATE POLICY user_role_select ON user_role
-  FOR SELECT TO authenticated
-  USING (
-    user_id = get_current_user_id()
-    OR has_any_role(ARRAY['secretary_rvm', 'rvm_sys_admin'])
-    OR is_super_admin()
-  );
+CREATE POLICY [table]_baseline_update ON [table_name]
+  FOR UPDATE TO authenticated
+  USING (is_super_admin());
 
--- super_admin_bootstrap (sys_admin only)
-CREATE POLICY super_admin_select ON super_admin_bootstrap
-  FOR SELECT TO authenticated
-  USING (
-    auth_id = auth.uid() 
-    OR has_role('rvm_sys_admin')
-  );
+-- DELETE remains blocked (no policy = denied)
 ```
 
----
+**Special Case — Reference Data:**
+- `missive_keyword`: SELECT allowed for all authenticated (reference data)
+- All other tables: super-admin only until full RLS in later phases
 
-### Step 7: CREATE INDEXES
-
-**Migration File:** `supabase/migrations/20260128_005_identity_indexes.sql`
-
-```sql
--- ============================================
--- INDEXES: IDENTITY TABLES
--- ============================================
-
-CREATE INDEX idx_app_user_auth_id ON app_user(auth_id);
-CREATE INDEX idx_app_user_email ON app_user(email);
-CREATE INDEX idx_app_user_active ON app_user(is_active) WHERE is_active = true;
-CREATE INDEX idx_user_role_user ON user_role(user_id);
-CREATE INDEX idx_user_role_code ON user_role(role_code);
-CREATE INDEX idx_super_admin_auth ON super_admin_bootstrap(auth_id);
-```
+**DEFERRED:** Full role-based RLS matrix → Phase 3+ (per table domain)
 
 ---
 
-### Step 8: UPDATE SUPABASE TYPES
+### Step 11: CREATE INDEXES
 
-After migration execution, the types file will be auto-regenerated to include:
-- `app_user` table type
-- `app_role` table type
-- `user_role` table type
-- `super_admin_bootstrap` table type
+**Migration File:** `20260128_010_indexes.sql`
+
+All performance indexes as originally specified (unchanged):
+- `idx_dossier_status`, `idx_dossier_urgency`, `idx_dossier_created_at`
+- `idx_task_dossier`, `idx_task_status`, `idx_task_due`
+- `idx_meeting_date`, `idx_agenda_meeting`
+- `idx_decision_final`
+- `idx_audit_entity`, `idx_audit_occurred`
+- `idx_document_dossier`, `idx_docversion_document`
 
 ---
 
-### Step 9: CREATE POST-PHASE RESTORE POINT
+### Step 12: CREATE POST-PHASE RESTORE POINT
 
-**Restore Point:** `RP-P2-post-20260128`
+**Restore Point:** `RP-P2B-post-20260128`
 
 Contents:
-- Codebase snapshot reference
-- Database state: Identity schema deployed
-- Tables: `app_user`, `app_role`, `user_role`, `super_admin_bootstrap`
-- RLS: Enabled on all identity tables
-- Functions: 5 helper functions deployed
-- Seed data: 9 RVM roles
+- All 12 enums deployed
+- All 10 domain tables deployed
+- Baseline RLS enabled (super-admin access)
+- All indexes created
+- NO governance triggers deployed
 
 ---
 
-## Scope Compliance Matrix
+## MIGRATION FILE SUMMARY (REVISED)
 
-### Allowed — Implementation Plan
-| Scope Item | Status |
-|------------|--------|
-| Disable Fake Auth Backend | Planned (Step 1) |
-| Create schema migrations | Planned (Steps 3-7) |
-| Create enums | Deferred (Phase 2B — Core Domain tables) |
-| Create identity tables | Planned (Step 3) |
-| Create RLS helper functions | Planned (Step 4) |
-| Seed role reference data | Planned (Step 5) |
-| Enable RLS on identity tables | Planned (Step 6) |
-| Create indexes | Planned (Step 7) |
-| Pre-phase restore point | Planned (Step 2) |
-| Post-phase restore point | Planned (Step 9) |
-
-### Forbidden — Compliance Verification
-| Forbidden Item | Status |
-|----------------|--------|
-| Business logic | NOT IMPLEMENTED |
-| AMS modules | NOT IMPLEMENTED |
-| Auth UI flows | NOT IMPLEMENTED |
-| Role management UI | NOT IMPLEMENTED |
-| User provisioning UI | NOT IMPLEMENTED |
-| Super Admin user creation | NOT IMPLEMENTED |
-| New UI libraries | NOT IMPLEMENTED |
-| Layout refactors | NOT IMPLEMENTED |
-| Styling changes | NOT IMPLEMENTED |
+| # | File | Contents | Scope Status |
+|---|------|----------|--------------|
+| 1 | `20260128_001_enums.sql` | 12 enum types | DATA MODEL |
+| 2 | `20260128_002_taxonomy.sql` | `missive_keyword` table | DATA MODEL |
+| 3 | `20260128_003_dossier.sql` | `rvm_dossier`, `rvm_item`, sequence, number-gen trigger | DATA MODEL |
+| 4 | `20260128_004_meeting.sql` | `rvm_meeting`, `rvm_agenda_item` | DATA MODEL |
+| 5 | `20260128_005_decision.sql` | `rvm_decision` (no immutability trigger) | DATA MODEL |
+| 6 | `20260128_006_document.sql` | `rvm_document`, `rvm_document_version` | DATA MODEL |
+| 7 | `20260128_007_task.sql` | `rvm_task` | DATA MODEL |
+| 8 | `20260128_008_audit.sql` | `audit_event` (no immutability triggers) | DATA MODEL |
+| 9 | `20260128_009_baseline_rls.sql` | RLS enable + super-admin baseline only | DATA MODEL |
+| 10 | `20260128_010_indexes.sql` | Performance indexes | DATA MODEL |
 
 ---
 
-## Technical Details
+## DEFERRED ITEMS REGISTER
 
-### Files to Create
-1. `supabase/migrations/20260128_001_identity_schema.sql`
-2. `supabase/migrations/20260128_002_rls_functions.sql`
-3. `supabase/migrations/20260128_003_seed_roles.sql`
-4. `supabase/migrations/20260128_004_identity_rls.sql`
-5. `supabase/migrations/20260128_005_identity_indexes.sql`
-6. `Project Restore Points/RP-P2-pre-20260128.md`
-7. `Project Restore Points/RP-P2-post-20260128.md`
+### Deferred to Phase 5 (Decision Management)
+| Item | Type | Reason |
+|------|------|--------|
+| `prevent_decision_modification()` | Trigger | Governance enforcement |
+| Decision-state-dependent RLS policies | RLS | Business rule enforcement |
+| Chair RVM approval gate logic | RLS | Business rule enforcement |
 
-### Files to Modify
-1. `src/App.tsx` — Remove fake backend call
-2. `src/helpers/fake-backend.ts` — Export empty function
-3. `src/context/useAuthContext.tsx` — Add dev bypass shim
+### Deferred to Phase 8 (Audit Finalization)
+| Item | Type | Reason |
+|------|------|--------|
+| `prevent_audit_modification()` | Trigger | Governance enforcement |
+| `prevent_audit_deletion()` | Trigger | Governance enforcement |
+| Audit-readonly RLS semantics | RLS | Business rule enforcement |
 
-### Dev Bypass Shim (Technical Detail)
-
-The shim adds a check in `useAuthContext.tsx`:
-
-```typescript
-// Development bypass for Phase 2 (no real auth yet)
-const DEV_BYPASS_KEY = '_AMS_RVM_DEV_MODE_'
-
-const isDevBypass = (): boolean => {
-  try {
-    return localStorage.getItem(DEV_BYPASS_KEY) === 'true'
-  } catch {
-    return false
-  }
-}
-```
-
-This allows:
-- Admin shell to load during Phase 2 development
-- No new UI screens
-- No styling changes
-- Removable when real Supabase auth is implemented
+### Deferred to Phase 3+ (Per Domain)
+| Item | Type | Reason |
+|------|------|--------|
+| Full role-based CRUD matrix | RLS | Workflow-dependent access |
+| Role-specific INSERT/UPDATE guards | RLS | Business rule enforcement |
+| Status-transition guards | RLS | State machine logic |
 
 ---
 
-## Database Entity Summary
+## BASELINE RLS SUMMARY (REVISED)
 
-### Tables Created (Phase 2)
-| Table | Purpose | RLS |
-|-------|---------|-----|
-| `app_user` | User identity linked to auth.users | Enabled |
-| `app_role` | 9 RVM role definitions | Enabled |
-| `user_role` | User-role assignments | Enabled |
-| `super_admin_bootstrap` | Test/bootstrap access | Enabled |
+| Table | SELECT | INSERT | UPDATE | DELETE |
+|-------|--------|--------|--------|--------|
+| `missive_keyword` | All authenticated | super_admin | super_admin | Denied |
+| `rvm_dossier` | super_admin | super_admin | super_admin | Denied |
+| `rvm_item` | super_admin | super_admin | super_admin | Denied |
+| `rvm_meeting` | super_admin | super_admin | super_admin | Denied |
+| `rvm_agenda_item` | super_admin | super_admin | super_admin | Denied |
+| `rvm_decision` | super_admin | super_admin | super_admin | Denied |
+| `rvm_document` | super_admin | super_admin | super_admin | Denied |
+| `rvm_document_version` | super_admin | super_admin | super_admin | Denied |
+| `rvm_task` | super_admin | super_admin | super_admin | Denied |
+| `audit_event` | super_admin | super_admin | Denied | Denied |
 
-### Functions Created
-| Function | Purpose |
-|----------|---------|
-| `get_current_user_id()` | Returns app_user.id for current session |
-| `get_user_roles()` | Returns array of role codes for current user |
-| `has_role(role)` | Checks if user has specific role |
-| `has_any_role(roles[])` | Checks if user has any of specified roles |
-| `is_super_admin()` | Checks super admin bootstrap status |
+**Note:** `audit_event` UPDATE is denied at baseline (append-only pattern prepared, enforcement deferred)
 
 ---
 
-## Risks and Mitigations
+## SCOPE COMPLIANCE CONFIRMATION
 
-| Risk | Mitigation |
-|------|------------|
-| Dev bypass could be exploited | Clearly documented as Phase 2 only; removed in Phase 3+ |
-| RLS recursion issues | Used SECURITY DEFINER functions per Supabase best practices |
-| Schema drift | All changes via versioned migrations |
+### Phase 2B NOW CONTAINS ONLY:
+- Table definitions (columns, types, constraints)
+- Foreign key relationships
+- CHECK constraints (data integrity)
+- Sequences and data-generation triggers
+- Performance indexes
+- Baseline RLS (enable + super-admin access)
+
+### Phase 2B DOES NOT CONTAIN:
+- Immutability triggers (governance)
+- Role-based access matrices (business rules)
+- State-dependent policies (workflow logic)
+- Audit enforcement triggers (compliance logic)
+- Any UI changes
+- Any workflow automation
 
 ---
 
-## Deliverables
+## CONFIRMATION STATEMENT
 
-1. **Fake Auth Disabled** — Confirmed with impact assessment
-2. **Pre-Phase Restore Point** — `RP-P2-pre-20260128`
-3. **5 Migration Files** — Versioned in `/supabase/migrations/`
-4. **Post-Phase Restore Point** — `RP-P2-post-20260128`
-5. **Phase 2 Completion Report** — DONE/SKIPPED/DEFERRED matrix
+Phase 2B Implementation Plan has been corrected to align with "DATA MODEL ONLY" scope:
+
+1. **Immutability Triggers** — REMOVED from Phase 2B, documented for deferral to Phases 5 and 8
+2. **RLS Policies** — REDUCED to baseline enforcement only (enable + super-admin bypass)
+3. **All Other Items** — Verified as data model definitions (tables, constraints, indexes)
+
+Phase 2B is now strictly "DATA MODEL ONLY" as authorized.
 
 ---
 
 ## HARD STOP
 
-After completing Phase 2 (DB Foundation):
-- Identity schema deployed
-- RLS enabled
-- Fake Auth disabled
-- Restore points created
-
-**Await explicit authorization for Phase 2B (Core Domain enums/tables) or Phase 3 (Workflow Engine).**
+Corrected plan delivered. Awaiting re-approval before execution.
