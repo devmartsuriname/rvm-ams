@@ -1,142 +1,159 @@
 
-# Fix: Login Redirect Race Condition
+# Fix: Login Redirect Race Condition (Production Build)
 
-## Problem Summary
-After successful Supabase login, `useSignIn` navigates immediately before `onAuthStateChange` can update the auth state. The router then sees `isAuthenticated = false` and redirects back to sign-in.
+## Root Cause
+The `useSignIn` hook navigates immediately when Supabase's `SIGNED_IN` event fires, but `AuthContext.handleAuthChange()` is async and hasn't finished fetching `app_user`/`user_role` from the database. When the router checks `isAuthenticated`, it's still `false`, causing a redirect loop.
 
-## Solution: Reactive Navigation
-
-Instead of navigating immediately after `signInWithPassword()`, wait for the auth context to confirm authentication, then navigate.
+## Solution
+Re-integrate with `useAuthContext` and wait for the context to confirm authentication before navigating. Remove the duplicate `onAuthStateChange` listener from `useSignIn`.
 
 ---
 
-## Files to Modify
+## File Changes
 
 ### 1. `src/app/(other)/auth/sign-in/useSignIn.ts`
 
-**Current (broken):**
-```typescript
-const login = handleSubmit(async (values) => {
-  const { error } = await supabase.auth.signInWithPassword(...)
-  if (!error) {
-    showNotification({ message: 'Successfully logged in. Redirecting...' })
-    redirectUser() // ← IMMEDIATE navigation - auth state not ready!
-  }
-})
-```
+**Changes:**
+- Re-add `useAuthContext` import
+- Remove the duplicate `onAuthStateChange` listener
+- Navigate only when `loginSuccess && isAuthenticated` are both true
+- Add redirect-away logic if user is already authenticated
 
-**Fixed (reactive):**
 ```typescript
+import { yupResolver } from '@hookform/resolvers/yup'
+import { useState, useEffect, useCallback, useRef } from 'react'
+import { useForm } from 'react-hook-form'
+import { useNavigate, useSearchParams } from 'react-router-dom'
+import * as yup from 'yup'
+
+import { supabase } from '@/integrations/supabase/client'
+import { useNotificationContext } from '@/context/useNotificationContext'
 import { useAuthContext } from '@/context/useAuthContext'
 
 const useSignIn = () => {
-  const { isAuthenticated } = useAuthContext()
+  const [loading, setLoading] = useState(false)
   const [loginSuccess, setLoginSuccess] = useState(false)
-  
-  // Navigate ONLY when auth state confirms authentication
+  const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  const { showNotification } = useNotificationContext()
+  const { isAuthenticated } = useAuthContext()
+  const hasRedirectedRef = useRef(false)
+
+  // ... form schema ...
+
+  const redirectUser = useCallback(() => {
+    if (hasRedirectedRef.current) return
+    hasRedirectedRef.current = true
+    
+    const redirectLink = searchParams.get('redirectTo')
+    if (redirectLink) navigate(redirectLink)
+    else navigate('/dashboards')
+  }, [searchParams, navigate])
+
+  // Redirect if already authenticated (page refresh while logged in)
   useEffect(() => {
-    if (loginSuccess && isAuthenticated) {
+    if (isAuthenticated && !loginSuccess) {
       redirectUser()
     }
-  }, [loginSuccess, isAuthenticated])
+  }, [isAuthenticated, loginSuccess, redirectUser])
+
+  // Wait for BOTH loginSuccess AND isAuthenticated before navigating
+  useEffect(() => {
+    if (loginSuccess && isAuthenticated) {
+      console.info('[SignIn] Auth context confirmed, redirecting...')
+      redirectUser()
+    }
+  }, [loginSuccess, isAuthenticated, redirectUser])
 
   const login = handleSubmit(async (values) => {
-    const { error } = await supabase.auth.signInWithPassword(...)
-    if (!error) {
-      showNotification({ message: 'Successfully logged in. Redirecting...' })
-      setLoginSuccess(true) // ← Signal success, wait for auth context
-      // Don't navigate here!
+    setLoading(true)
+    hasRedirectedRef.current = false
+    
+    try {
+      const { error } = await supabase.auth.signInWithPassword({
+        email: values.email,
+        password: values.password,
+      })
+
+      if (error) {
+        showNotification({ message: error.message, variant: 'danger' })
+        return
+      }
+
+      showNotification({ message: 'Successfully logged in...', variant: 'success' })
+      setLoginSuccess(true)
+      // Navigation handled by useEffect watching isAuthenticated
+      
+    } catch (e) {
+      showNotification({ message: 'Unexpected error', variant: 'danger' })
+    } finally {
+      setLoading(false)
     }
   })
+
+  return { loading, login, control }
 }
-```
-
----
-
-### 2. `src/context/useAuthContext.tsx` (Minor Enhancement)
-
-Add a debug log to confirm auth state changes are being processed:
-
-```typescript
-const handleAuthChange = useCallback(async (session: Session | null) => {
-  if (isProcessingRef.current) {
-    console.info('[Auth] Skipping duplicate auth processing')
-    return
-  }
-  
-  isProcessingRef.current = true
-  console.info('[Auth] Processing session:', !!session) // ← Add this
-  
-  try {
-    if (session?.user && session.access_token) {
-      console.info('[Auth] Fetching app_user for:', session.user.id) // ← Add this
-      const appUser = await mapSupabaseUserToAppUser(session.user, session.access_token)
-      // ... rest of code
-    }
-  }
-})
 ```
 
 ---
 
 ## Technical Details
 
-### Why This Fix Works
+### Why This Works
 
 ```text
-Before (Race Condition):
-┌─────────────┐    ┌──────────────┐    ┌───────────┐
-│ signIn()    │───►│ navigate('/') │───►│ Router    │
-│ succeeds    │    │ immediately  │    │ checks    │
-└─────────────┘    └──────────────┘    │ isAuth=   │
-                                       │ FALSE     │
-                                       └───────────┘
-                                            │
-                                            ▼
-                                   ┌──────────────────┐
-                                   │ Redirect to      │
-                                   │ /auth/sign-in    │
-                                   └──────────────────┘
+FIXED TIMELINE:
 
-After (Reactive):
-┌─────────────┐    ┌──────────────┐    ┌───────────┐
-│ signIn()    │───►│ setLoginSuc- │    │ onAuthSt- │
-│ succeeds    │    │ cess(true)   │    │ ateChange │
-└─────────────┘    └──────────────┘    │ fires     │
-                          │            └───────────┘
-                          │                  │
-                          ▼                  ▼
-                   ┌──────────────────────────────┐
-                   │ useEffect watches:           │
-                   │ loginSuccess && isAuth       │
-                   │ ──────────────────────       │
-                   │ When BOTH true → navigate()  │
-                   └──────────────────────────────┘
+T0: User clicks "Sign In"
+T1: signInWithPassword() returns success
+T2: setLoginSuccess(true)
+T3: useEffect runs: loginSuccess=true, isAuthenticated=false → NO navigation
+    ↓
+T4: AuthContext's onAuthStateChange fires (async DB queries)
+T5: AuthContext completes, sets isAuthenticated=true
+T6: useEffect runs again: loginSuccess=true, isAuthenticated=true → NAVIGATE
+T7: Router checks isAuthenticated → TRUE ✓
+T8: Dashboard renders successfully
 ```
 
 ### Changes Summary
 
-| File | Change | Risk |
-|------|--------|------|
-| `useSignIn.ts` | Add reactive navigation via useEffect | Low - isolated to login flow |
-| `useAuthContext.tsx` | Add debug logs (optional) | None - logging only |
+| Change | Purpose |
+|--------|---------|
+| Re-add `useAuthContext` | Access `isAuthenticated` state |
+| Remove `onAuthStateChange` listener | Eliminate duplicate/racing listener |
+| Watch `loginSuccess && isAuthenticated` | Wait for AuthContext to confirm |
+| Add already-authenticated check | Handle page refresh while logged in |
+| Navigate to `/dashboards` by default | Explicit default instead of `/` |
+
+---
+
+## Why Previous Fix Failed
+
+The previous fix tried to avoid `useAuthContext` by creating a separate `onAuthStateChange` listener in `useSignIn`. This caused:
+
+1. **Two competing listeners**: Both `useSignIn` and `AuthContext` subscribed to the same event
+2. **Different timing**: `useSignIn` navigated immediately, `AuthContext` did async work
+3. **Race condition**: Navigation happened before auth state was fully updated
 
 ---
 
 ## Governance Compliance
 
-- ❌ NO auth logic changes (same Supabase flow)
-- ❌ NO RLS changes
-- ❌ NO schema changes
-- ❌ NO UI changes (same form, same toast)
-- ✅ Bug fix only - timing/sequencing improvement
+- NO auth logic changes (same Supabase flow)
+- NO RLS changes
+- NO schema changes
+- NO UI changes
+- Bug fix only - proper state synchronization
 
 ---
 
 ## Verification Steps
 
-1. Sign in with `info@devmart.sr`
-2. Confirm success toast appears
-3. Confirm redirect to `/dashboards` (not back to sign-in)
-4. Confirm no console errors
-5. Confirm no safety timeout warnings
+1. Clear browser cache/cookies on live URL
+2. Navigate to `https://rvmams.lovable.app/auth/sign-in`
+3. Enter credentials and click Sign In
+4. Verify success toast appears
+5. Verify redirect to `/dashboards` occurs (not back to sign-in)
+6. Verify no console errors
+7. Test logout and re-login flow
