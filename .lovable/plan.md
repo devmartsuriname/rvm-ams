@@ -9,47 +9,77 @@
 | 3 | Workflow Engine | ✅ Complete |
 | 4 | RVM UI Modules | ✅ Complete |
 | 5 | UI ↔ Backend Binding | ✅ Complete |
-| 6 | Auth Replacement | ✅ Complete |
-| 7 | Reporting/Dashboards | 🔒 Awaiting Authorization |
-| 8 | Audit Finalization | 🔒 Awaiting Authorization |
+| 6 | Auth Replacement | 🔒 **CLOSED** |
+| 7 | Reporting/Dashboards | ⏳ Awaiting Authorization |
+| 8 | Audit Finalization | ⏳ Awaiting Authorization |
 
 ---
 
-## Phase 6 — Auth Replacement (COMPLETE)
+## Phase 6 — FORMAL CLOSURE
 
-### Executive Summary
+### Status: 🔒 CLOSED (2026-01-28)
 
-Phase 6 (Auth Replacement) was verified as **ALREADY COMPLETE**. The authentication system was migrated from Darkone fake backend to real Supabase Auth during earlier phases (primarily Phase 2) and stabilized with bugfixes post-Phase 5.
+### Closure Confirmations
 
-### Key Verified Components
+| Item | Status |
+|------|--------|
+| Fake Darkone Auth | **REMOVED / INACTIVE** |
+| Supabase Auth | **ACTIVE / VERIFIED** |
+| Auth Guards | Real Auth Only |
+| Route Protection | Real Auth Only |
+| Role Resolution | Database-Backed |
+| RLS Policies | Use `auth.uid()` |
+| UI Integrity | Darkone 1:1 Maintained |
 
-| Component | Status | Evidence |
-|-----------|--------|----------|
-| Fake backend disabled | ✅ | `src/helpers/fake-backend.ts` - empty function |
-| Supabase Auth wired | ✅ | `signInWithPassword()`, `onAuthStateChange()` |
-| Session persistence | ✅ | `persistSession: true` in client.ts |
-| Role resolution from DB | ✅ | `app_user` + `user_role` tables |
-| RLS with auth.uid() | ✅ | All 10 RVM tables verified |
-| Darkone UI 1:1 | ✅ | No UI changes made |
+### Closure Artifact
+- **File:** `Project Restore Points/RP-P6-CLOSURE-20260128.md`
+- **Type:** Formal Closure Record
+- **Status:** READ-ONLY
 
-### Restore Points
-- `RP-P5-pre-20260128.md` - Pre-Phase 5 state
-- `RP-P5-post-20260128.md` - Post-Phase 5 state
-- `RP-P6-post-20260128.md` - Phase 6 verification complete
+### Governance Lock
+- Phase 6 is FROZEN
+- No further changes allowed under Phase 6
+- Phase 7 requires explicit authorization
+- **Phase 7 is NOT started**
 
 ---
 
-## Governance Notes
+## Documentation Paths
 
-- **Strict Mode**: Darkone 1:1 compliance enforced
-- **Documentation**: Located in `/Project Docs/AMS-RVM/` (21 files)
-- **Phase Phases**: Located in `/Project Phases/` (8 files)
+| Checklist Reference | Actual Location |
+|---------------------|-----------------|
+| `/docs/backend.md` | `/Project Docs/AMS-RVM/backend_design_ams_rvm_core_v1.md` |
+| `/docs/architecture.md` | `/Project Docs/AMS-RVM/system_architecture_ams_rvm_core_v_1.md` |
+
+> Note: Project uses `/Project Docs/AMS-RVM/` structure, not `/docs/`.
+
+---
+
+## Restore Point Registry
+
+| ID | Phase | Type | Date |
+|----|-------|------|------|
+| RP-P1-post-20260128 | 1 | Post-Phase | 2026-01-28 |
+| RP-P2-pre-20260128 | 2 | Pre-Phase | 2026-01-28 |
+| RP-P2-post-20260128 | 2 | Post-Phase | 2026-01-28 |
+| RP-P2B-pre-20260128 | 2B | Pre-Phase | 2026-01-28 |
+| RP-P2B-post-20260128 | 2B | Post-Phase | 2026-01-28 |
+| RP-P3-pre-20260128 | 3 | Pre-Phase | 2026-01-28 |
+| RP-P3-post-20260128 | 3 | Post-Phase | 2026-01-28 |
+| RP-P4-pre-20260128 | 4 | Pre-Phase | 2026-01-28 |
+| RP-P4-post-20260128 | 4 | Post-Phase | 2026-01-28 |
+| RP-P5-pre-20260128 | 5 | Pre-Phase | 2026-01-28 |
+| RP-P5-post-20260128 | 5 | Post-Phase | 2026-01-28 |
+| RP-P6-post-20260128 | 6 | Post-Phase | 2026-01-28 |
+| RP-P6-CLOSURE-20260128 | 6 | **Formal Closure** | 2026-01-28 |
 
 ---
 
 ## Next Phase: 7 (Reporting/Dashboards)
 
-Requires explicit authorization. Scope includes:
+**Status:** Awaiting explicit authorization
+
+Scope (pending approval):
 - Dashboard data binding with real metrics
 - Dossier/Meeting/Task statistics
 - Role-based dashboard views
