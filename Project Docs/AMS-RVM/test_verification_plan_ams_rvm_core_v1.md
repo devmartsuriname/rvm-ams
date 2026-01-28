@@ -64,6 +64,27 @@ This document defines **test scenarios** for verifying:
 | test_audit | audit_readonly | Audit access testing |
 | test_sysadmin | rvm_sys_admin | Admin testing |
 | test_none | (no roles) | Unauthorized testing |
+| **test_superadmin** | **(super_admin_bootstrap)** | **Full-rights bootstrap testing** |
+
+### 3.2 Super Admin Bootstrap Testing
+
+**Purpose:** The `test_superadmin` user is registered in the `super_admin_bootstrap` table (NOT in `user_role`) to enable full-access verification runs during development and testing phases.
+
+**Usage Rules:**
+- Used ONLY for verification and debugging in Test environment
+- NEVER used for actual business operations
+- All actions still logged in `audit_event`
+- Cannot bypass Chair RVM approval governance logic (governance rule enforced)
+
+**Bootstrap Verification Tests:**
+
+| Test ID | Description | Expected |
+|---------|-------------|----------|
+| BOOTSTRAP-001 | Super admin can read all tables | Full read access in Test |
+| BOOTSTRAP-002 | Super admin actions are logged | All operations appear in audit_event |
+| BOOTSTRAP-003 | Super admin cannot bypass Chair approval | Chair RVM gate still enforced |
+| BOOTSTRAP-004 | Super admin inactive in production | is_active = false OR table not present |
+| BOOTSTRAP-005 | Expired super admin blocked | Access denied after expires_at |
 
 ### 3.2 Dossier RLS Tests
 
