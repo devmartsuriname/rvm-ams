@@ -1,284 +1,126 @@
 
 
-# Roadmap Correction + Phase Documents Plan
+# Derived Documentation Task — Implementation Plan
 
-## Overview
+## Objective
 
-This plan applies mandatory corrections to the project roadmap and creates the phase-specific planning documents in `/Project Phases/`. All changes are documentation-only; no implementation is authorized.
-
----
-
-## PART A — BACKEND PLATFORM CORRECTIONS
-
-### A.1 Platform Change: Lovable Cloud → External Supabase
-
-The following documents require text updates to replace "Lovable Cloud" with "External Supabase":
-
-| Document | Changes Required |
-|----------|------------------|
-| `deployment_strategy_ams_rvm_core_v1.md` | Lines 12-13: Source authority; Lines 38-44: Deployment flow; Line 179: Secret management; Lines 253: Phase 1 notes |
-| `execution_plan_ams_rvm_core_v1.md` | Lines 38-44: Task P1-001 description ("Enable Lovable Cloud" → "Enable External Supabase") |
-
-### A.2 New Environment Strategy Elements
-
-Add to Phase 1 Foundation scope:
-
-1. **External Supabase Project Assumptions**
-   - Project reference ID and region (to be provided by project owner)
-   - Supabase URL and anon key configuration
-   - Service role key handling (secure, never in frontend)
-
-2. **Environment Variable Strategy**
-   - Local development: `.env.local` (gitignored)
-   - Development/Staging: Supabase project settings
-   - Production: Hostinger VPS environment variables
-   - Variable naming: `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`
-
-3. **Migration Discipline**
-   - All schema changes tracked as versioned SQL files
-   - No ad-hoc console-only changes in production
-   - Migration files stored in `/supabase/migrations/` or equivalent
-   - Each migration requires review before execution
-
-### A.3 Hostinger VPS Acknowledgment
-
-Add to deployment strategy:
-- Future deployment target: Hostinger VPS
-- No deployment work in current phases
-- Architecture must support self-hosted Supabase or direct Postgres connection
-- Build output compatible with static hosting + API endpoints
+Create three non-authoritative derived documents that consolidate information already documented in Phase 0–8 planning. These serve executive overview and execution clarity purposes without introducing new content.
 
 ---
 
-## PART B — SUPER ADMIN TEST BOOTSTRAP
+## Document 1: Master_PRD.md
 
-### B.1 Table Specification
+### Purpose
+High-level summary derived from Phase 0–8 for executive reference.
 
-**Table Name:** `super_admin_bootstrap`
+### Source Documents
+- Phase-1-Foundation-Layer.md
+- Phase-2-Core-Domain.md
+- Phase-3-Workflow-Engine.md
+- Phase-4-Agenda-Management.md
+- Phase-5-Decision-Management.md
+- Phase-6-DMS-Light.md
+- Phase-7-Reporting-Dashboards.md
+- Phase-8-Audit-Finalization.md
+- prd_ams_rvm_core_v_1.md (authoritative)
+- prd_ams_rvm_core_execution_v1.md
 
-**Purpose:** Allow a controlled "full rights" test identity for verification runs during development and testing phases. This is NOT a production role mechanism.
-
-**Schema Definition (PLANNING ONLY):**
-```text
-super_admin_bootstrap
-├── id: UUID (PK, auto-generated)
-├── auth_id: UUID (FK → auth.users.id, UNIQUE)
-├── email: TEXT (NOT NULL)
-├── is_active: BOOLEAN (DEFAULT true)
-├── purpose: TEXT (documentation field: "testing/bootstrap")
-├── created_at: TIMESTAMPTZ
-└── expires_at: TIMESTAMPTZ (optional: auto-expiry for test accounts)
-```
-
-### B.2 RLS/Role Integration Notes
-
-1. **Bypass Mechanism (Test Environment ONLY)**
-   - `super_admin_bootstrap` users can bypass RLS in Test environment
-   - Helper function: `is_super_admin()` → checks `super_admin_bootstrap` table
-   - RLS policies include: `OR is_super_admin()` clause for Test environment
-
-2. **Production Safeguards**
-   - Table is NOT deployed to Live/Production environment
-   - Or: `is_active` permanently set to `false` in production
-   - Or: RLS policies do not include super_admin bypass in production
-
-3. **Governance Constraints**
-   - Super admin CANNOT bypass Chair RVM approval logic (governance rule)
-   - Super admin CAN access all data for verification
-   - All super admin actions are logged in `audit_event`
-
-### B.3 Documentation Updates Required
-
-| Document | Update Required |
-|----------|-----------------|
-| `backend_design_ams_rvm_core_v1.md` | Add `super_admin_bootstrap` table schema in Section 4.1 (Identity & Access) |
-| `rls_role_matrix_ams_rvm_core_v_1.md` | Note: Reference only (authoritative doc, no modifications) — implementation doc notes this testing mechanism |
-| `test_verification_plan_ams_rvm_core_v1.md` | Add test user: `test_superadmin` for bootstrap testing; update Section 3.1 Test User Setup |
+### Structure
+1. Derived Document Header (conflict resolution statement)
+2. Project Summary
+3. Scope Definition (RVM-only, no VP scope)
+4. Phase Overview (1–8 summary)
+5. Critical Gates (Phase 5, Phase 8)
+6. Governance Rules
+7. Platform & Deployment Summary
 
 ---
 
-## PART C — PHASE DOCUMENTS CREATION
+## Document 2: Executive_Architecture_Overview.md
 
-### C.1 Folder Structure
+### Purpose
+Read-only overview for executive and audit audiences summarizing architecture decisions.
 
-Create:
-```text
-/Project Phases/
-├── README.md
-├── Phase-1-Foundation-Layer.md
-├── Phase-2-Core-Domain.md
-├── Phase-3-Workflow-Engine.md
-├── Phase-4-Agenda-Management.md
-├── Phase-5-Decision-Management.md
-├── Phase-6-DMS-Light.md
-├── Phase-7-Reporting-Dashboards.md
-└── Phase-8-Audit-Finalization.md
-```
+### Source Documents
+- technical_architecture_ams_rvm_core_v1.md
+- system_architecture_ams_rvm_core_v_1.md (authoritative)
+- backend_design_ams_rvm_core_v1.md
+- deployment_strategy_ams_rvm_core_v1.md
 
-### C.2 Document Template (Applied to All Phase Docs)
-
-Each phase document will include:
-
-```text
-# Phase X: [Phase Name]
-## AMS – RVM Core (v1)
+### Structure
+1. Non-Authoritative Header
+2. Technology Stack Summary
+3. Security Architecture Overview
+4. Data Architecture Summary (entities only, no schema detail)
+5. Platform Configuration
+6. Governance & Compliance Summary
 
 ---
 
-## 1. Objective
-[Clear statement of what this phase accomplishes]
+## Document 3: Master_Tasks_Register.md
 
-## 2. Scope — Included
-- [Explicit list of what is IN scope]
+### Purpose
+Consolidated overview of all tasks defined per phase.
 
-## 3. Scope — Excluded
-- [Explicit list of what is OUT of scope]
+### Source Documents
+- execution_plan_ams_rvm_core_v1.md (primary source)
+- Phase-1 through Phase-8 documents (task breakdowns)
 
-## 4. Entry Criteria
-- [What must already exist before this phase can begin]
-
-## 5. Exit Criteria
-- [What defines successful phase completion]
-
-## 6. Restore Point Requirement
-- Pre-phase backup mandatory
-- Post-phase backup mandatory
-- Naming convention: `RP-PX-[pre|post]-YYYYMMDD`
-
-## 7. Verification Checklist
-Mapped to Test & Verification Plan:
-- [ ] [Test ID]: [Description]
-- [ ] [Test ID]: [Description]
-...
-
-## 8. Governance Gate
-- [Approval requirements for this phase]
-- [CRITICAL notation if applicable]
-
-## 9. Hard Stop Statement
-Phase X implementation may NOT proceed until:
-- All entry criteria verified
-- Phase X-1 completion confirmed
-- Explicit authorization received
+### Structure
+1. Document Header
+2. Task Summary by Phase
+3. Task Register Table with columns:
+   - Phase
+   - Task ID
+   - Task Name
+   - Reference Document
+   - Status (Planned / Future Phase)
+4. Totals Summary (81 tasks, 164 points)
 
 ---
 
-**Document Status:** Planning Only — Implementation NOT Started
-```
+## Deliverables Summary
 
-### C.3 Phase-Specific Content Summary
-
-#### Phase 1: Foundation Layer
-- **Objective:** Establish backend infrastructure, authentication, identity model
-- **Key Deliverables:** External Supabase connection, identity schema, auth flow, AuthContext, RoleGuard, RVM menu placeholders
-- **Verification Tests:** P1-TEST-001 through P1-TEST-008
-- **Special Notes:** Includes `super_admin_bootstrap` table for testing
-
-#### Phase 2: Core Domain
-- **Objective:** Implement RVM dossier lifecycle and item classification
-- **Key Deliverables:** Enums, `missive_keyword`, `rvm_dossier`, `rvm_item`, dossier UI, audit events
-- **Verification Tests:** RLS-DOSSIER-001 through RLS-DOSSIER-003
-
-#### Phase 3: Workflow Engine
-- **Objective:** Implement task assignment and ownership tracking
-- **Key Deliverables:** `rvm_task` table, task UI, overdue detection
-- **Verification Tests:** WF-TASK-001
-
-#### Phase 4: Agenda Management
-- **Objective:** Implement RVM meeting and agenda preparation
-- **Key Deliverables:** `rvm_meeting`, `rvm_agenda_item`, meeting UI, agenda builder
-- **Verification Tests:** WF-MEETING-001
-
-#### Phase 5: Decision Management (CRITICAL GATE)
-- **Objective:** Implement decision recording with Chair RVM approval workflow
-- **Key Deliverables:** `rvm_decision`, immutability trigger, Chair approval button
-- **Verification Tests:** GATE-001 through GATE-005, IMMUTABLE-001 through IMMUTABLE-006
-- **Special Notes:** CRITICAL GATE — Governance approval mandatory
-
-#### Phase 6: DMS-Light
-- **Objective:** Implement document upload, versioning, and linking
-- **Key Deliverables:** `rvm_document`, `rvm_document_version`, storage bucket
-- **Verification Tests:** IMMUTABLE-006
-
-#### Phase 7: Reporting & Dashboards
-- **Objective:** Implement decision list generation and role-based dashboards
-- **Key Deliverables:** Chair/Secretary dashboards, decision list generator, PDF export
-
-#### Phase 8: Audit Finalization (SYSTEM READINESS)
-- **Objective:** Complete audit logging and verify immutability
-- **Key Deliverables:** Audit log viewer, compliance documentation
-- **Special Notes:** SYSTEM READINESS gate — Full verification required
+| Document | Location | Purpose |
+|----------|----------|---------|
+| Master_PRD.md | /Project Docs/AMS-RVM/ | Executive project summary |
+| Executive_Architecture_Overview.md | /Project Docs/AMS-RVM/ | Architecture overview for audit |
+| Master_Tasks_Register.md | /Project Docs/AMS-RVM/ | Task consolidation |
 
 ---
 
-## PART D — DOCUMENT UPDATE MATRIX
+## Technical Notes
 
-### Documents to be Updated
+### Content Derivation Rules
+- All content extracted directly from existing phase documents
+- No new requirements or interpretations
+- No scope expansion
+- Conflict resolution statement included in each document
+- Cross-references to source documents maintained
 
-| Document Path | Update Type | Description |
-|---------------|-------------|-------------|
-| `Project Docs/AMS-RVM/deployment_strategy_ams_rvm_core_v1.md` | Modify | Replace "Lovable Cloud" references with "External Supabase"; add Hostinger VPS acknowledgment; add migration discipline section |
-| `Project Docs/AMS-RVM/execution_plan_ams_rvm_core_v1.md` | Modify | Update task P1-001 description; add environment variable strategy |
-| `Project Docs/AMS-RVM/backend_design_ams_rvm_core_v1.md` | Modify | Add `super_admin_bootstrap` table schema |
-| `Project Docs/AMS-RVM/test_verification_plan_ams_rvm_core_v1.md` | Modify | Add `test_superadmin` user; add bootstrap testing section |
-
-### Documents to be Created
-
-| Document Path | Description |
-|---------------|-------------|
-| `Project Phases/README.md` | Phase folder index and governance reminders |
-| `Project Phases/Phase-1-Foundation-Layer.md` | Full Phase 1 specification |
-| `Project Phases/Phase-2-Core-Domain.md` | Full Phase 2 specification |
-| `Project Phases/Phase-3-Workflow-Engine.md` | Full Phase 3 specification |
-| `Project Phases/Phase-4-Agenda-Management.md` | Full Phase 4 specification |
-| `Project Phases/Phase-5-Decision-Management.md` | Full Phase 5 specification (CRITICAL GATE) |
-| `Project Phases/Phase-6-DMS-Light.md` | Full Phase 6 specification |
-| `Project Phases/Phase-7-Reporting-Dashboards.md` | Full Phase 7 specification |
-| `Project Phases/Phase-8-Audit-Finalization.md` | Full Phase 8 specification (SYSTEM READINESS) |
+### Governance Compliance
+- These documents are NON-AUTHORITATIVE
+- In case of conflict, Phase Documents prevail
+- No implementation triggered by these documents
+- Planning remains frozen
 
 ---
 
-## PART E — GOVERNANCE COMPLIANCE
+## Implementation Steps
 
-| Rule | Status |
-|------|--------|
-| Planning ONLY — no implementation | CONFIRMED |
-| No schema/RLS/UI changes | CONFIRMED |
-| No scope expansion beyond authoritative docs | CONFIRMED |
-| External Supabase platform documented | PLANNED |
-| Super Admin table documented as testing mechanism | PLANNED |
-| Hostinger VPS acknowledged for future deployment | PLANNED |
+1. Create `Master_PRD.md` with derived content from all 8 phases
+2. Create `Executive_Architecture_Overview.md` with architecture summary
+3. Create `Master_Tasks_Register.md` with complete task listing (81 tasks)
+4. Verify no new content introduced
+5. Submit derivation report
 
 ---
 
-## EXECUTION SUMMARY
+## Confirmation
 
-Upon approval, the following will be created/updated:
-
-**Modified (4 documents):**
-1. `Project Docs/AMS-RVM/deployment_strategy_ams_rvm_core_v1.md`
-2. `Project Docs/AMS-RVM/execution_plan_ams_rvm_core_v1.md`
-3. `Project Docs/AMS-RVM/backend_design_ams_rvm_core_v1.md`
-4. `Project Docs/AMS-RVM/test_verification_plan_ams_rvm_core_v1.md`
-
-**Created (9 documents):**
-1. `Project Phases/README.md`
-2. `Project Phases/Phase-1-Foundation-Layer.md`
-3. `Project Phases/Phase-2-Core-Domain.md`
-4. `Project Phases/Phase-3-Workflow-Engine.md`
-5. `Project Phases/Phase-4-Agenda-Management.md`
-6. `Project Phases/Phase-5-Decision-Management.md`
-7. `Project Phases/Phase-6-DMS-Light.md`
-8. `Project Phases/Phase-7-Reporting-Dashboards.md`
-9. `Project Phases/Phase-8-Audit-Finalization.md`
-
-**Total: 13 documentation operations**
-
----
-
-## CONFIRMATION
-
-- **Implementation has NOT started**
-- **No code, schema, RLS, or UI changes made**
-- **Awaiting explicit authorization to proceed**
+Upon completion, the following will be confirmed:
+- Sources used: All 8 Phase documents + execution plan + architecture docs
+- No new content added
+- Planning remains frozen
+- Implementation not started
 
