@@ -1,159 +1,101 @@
+# Project Plan — AMS–RVM Core (v1)
 
-# Fix: Login Redirect Race Condition (Production Build)
+## Phase Status Registry
 
-## Root Cause
-The `useSignIn` hook navigates immediately when Supabase's `SIGNED_IN` event fires, but `AuthContext.handleAuthChange()` is async and hasn't finished fetching `app_user`/`user_role` from the database. When the router checks `isAuthenticated`, it's still `false`, causing a redirect loop.
-
-## Solution
-Re-integrate with `useAuthContext` and wait for the context to confirm authentication before navigating. Remove the duplicate `onAuthStateChange` listener from `useSignIn`.
-
----
-
-## File Changes
-
-### 1. `src/app/(other)/auth/sign-in/useSignIn.ts`
-
-**Changes:**
-- Re-add `useAuthContext` import
-- Remove the duplicate `onAuthStateChange` listener
-- Navigate only when `loginSuccess && isAuthenticated` are both true
-- Add redirect-away logic if user is already authenticated
-
-```typescript
-import { yupResolver } from '@hookform/resolvers/yup'
-import { useState, useEffect, useCallback, useRef } from 'react'
-import { useForm } from 'react-hook-form'
-import { useNavigate, useSearchParams } from 'react-router-dom'
-import * as yup from 'yup'
-
-import { supabase } from '@/integrations/supabase/client'
-import { useNotificationContext } from '@/context/useNotificationContext'
-import { useAuthContext } from '@/context/useAuthContext'
-
-const useSignIn = () => {
-  const [loading, setLoading] = useState(false)
-  const [loginSuccess, setLoginSuccess] = useState(false)
-  const navigate = useNavigate()
-  const [searchParams] = useSearchParams()
-  const { showNotification } = useNotificationContext()
-  const { isAuthenticated } = useAuthContext()
-  const hasRedirectedRef = useRef(false)
-
-  // ... form schema ...
-
-  const redirectUser = useCallback(() => {
-    if (hasRedirectedRef.current) return
-    hasRedirectedRef.current = true
-    
-    const redirectLink = searchParams.get('redirectTo')
-    if (redirectLink) navigate(redirectLink)
-    else navigate('/dashboards')
-  }, [searchParams, navigate])
-
-  // Redirect if already authenticated (page refresh while logged in)
-  useEffect(() => {
-    if (isAuthenticated && !loginSuccess) {
-      redirectUser()
-    }
-  }, [isAuthenticated, loginSuccess, redirectUser])
-
-  // Wait for BOTH loginSuccess AND isAuthenticated before navigating
-  useEffect(() => {
-    if (loginSuccess && isAuthenticated) {
-      console.info('[SignIn] Auth context confirmed, redirecting...')
-      redirectUser()
-    }
-  }, [loginSuccess, isAuthenticated, redirectUser])
-
-  const login = handleSubmit(async (values) => {
-    setLoading(true)
-    hasRedirectedRef.current = false
-    
-    try {
-      const { error } = await supabase.auth.signInWithPassword({
-        email: values.email,
-        password: values.password,
-      })
-
-      if (error) {
-        showNotification({ message: error.message, variant: 'danger' })
-        return
-      }
-
-      showNotification({ message: 'Successfully logged in...', variant: 'success' })
-      setLoginSuccess(true)
-      // Navigation handled by useEffect watching isAuthenticated
-      
-    } catch (e) {
-      showNotification({ message: 'Unexpected error', variant: 'danger' })
-    } finally {
-      setLoading(false)
-    }
-  })
-
-  return { loading, login, control }
-}
-```
+| Phase | Name | Status | Restore Point |
+|-------|------|--------|---------------|
+| 1 | Foundation Layer | CLOSED | RP-P1-post-20260128.md |
+| 2 | Core Domain | CLOSED | RP-P2-post-20260128.md |
+| 3 | Workflow Engine | CLOSED | RP-P3-post-20260128.md |
+| 4 | Agenda Management | CLOSED | RP-P4-post-20260128.md |
+| 5 | Decision Management | CLOSED | RP-P5-post-20260128.md |
+| 6 | Auth Replacement | CLOSED | RP-P6-CLOSURE-20260128.md |
+| 7 | Reporting & Dashboards | **COMPLETE** | RP-P7-post-20260128.md |
+| 8 | Audit Finalization | PENDING | - |
 
 ---
 
-## Technical Details
+## Phase 7 — Completion Report
 
-### Why This Works
-
-```text
-FIXED TIMELINE:
-
-T0: User clicks "Sign In"
-T1: signInWithPassword() returns success
-T2: setLoginSuccess(true)
-T3: useEffect runs: loginSuccess=true, isAuthenticated=false → NO navigation
-    ↓
-T4: AuthContext's onAuthStateChange fires (async DB queries)
-T5: AuthContext completes, sets isAuthenticated=true
-T6: useEffect runs again: loginSuccess=true, isAuthenticated=true → NAVIGATE
-T7: Router checks isAuthenticated → TRUE ✓
-T8: Dashboard renders successfully
-```
-
-### Changes Summary
-
-| Change | Purpose |
-|--------|---------|
-| Re-add `useAuthContext` | Access `isAuthenticated` state |
-| Remove `onAuthStateChange` listener | Eliminate duplicate/racing listener |
-| Watch `loginSuccess && isAuthenticated` | Wait for AuthContext to confirm |
-| Add already-authenticated check | Handle page refresh while logged in |
-| Navigate to `/dashboards` by default | Explicit default instead of `/` |
+### Authorization Reference
+- **Project:** AMS–RVM Core (v1)
+- **Phase:** 7 — Reporting & Dashboards
+- **Completed:** 2026-01-28
+- **Mode:** STRICT (Darkone 1:1)
 
 ---
 
-## Why Previous Fix Failed
+### Implemented KPIs (6 Total)
 
-The previous fix tried to avoid `useAuthContext` by creating a separate `onAuthStateChange` listener in `useSignIn`. This caused:
-
-1. **Two competing listeners**: Both `useSignIn` and `AuthContext` subscribed to the same event
-2. **Different timing**: `useSignIn` navigated immediately, `AuthContext` did async work
-3. **Race condition**: Navigation happened before auth state was fully updated
-
----
-
-## Governance Compliance
-
-- NO auth logic changes (same Supabase flow)
-- NO RLS changes
-- NO schema changes
-- NO UI changes
-- Bug fix only - proper state synchronization
+| # | KPI | Icon | Data Source | Query Type |
+|---|-----|------|-------------|------------|
+| 1 | Total Dossiers | bx:folder | `rvm_dossier` | COUNT(*) |
+| 2 | Active Dossiers | bx:folder-open | `rvm_dossier` | COUNT(*) WHERE status NOT IN (decided, archived, cancelled) |
+| 3 | Total Meetings | bx:calendar | `rvm_meeting` | COUNT(*) |
+| 4 | Upcoming Meetings | bx:calendar-event | `rvm_meeting` | COUNT(*) WHERE date >= TODAY AND status IN (draft, published) |
+| 5 | Total Tasks | bx:task | `rvm_task` | COUNT(*) |
+| 6 | Pending Tasks | bx:hourglass | `rvm_task` | COUNT(*) WHERE status IN (todo, in_progress) |
 
 ---
 
-## Verification Steps
+### Implemented Charts (2 Total)
 
-1. Clear browser cache/cookies on live URL
-2. Navigate to `https://rvmams.lovable.app/auth/sign-in`
-3. Enter credentials and click Sign In
-4. Verify success toast appears
-5. Verify redirect to `/dashboards` occurs (not back to sign-in)
-6. Verify no console errors
-7. Test logout and re-login flow
+| Chart | Type | Data Source | RLS Enforced |
+|-------|------|-------------|--------------|
+| Dossiers by Status | Donut | `rvm_dossier.status` | ✅ YES |
+| Tasks by Status | Donut | `rvm_task.status` | ✅ YES |
+
+---
+
+### Files Created
+
+| File | Purpose |
+|------|---------|
+| `src/services/dashboardService.ts` | Parallel Supabase queries for all metrics |
+| `src/hooks/useDashboardStats.ts` | React Query hook with 5-minute cache |
+| `src/app/(admin)/dashboards/components/StatCard.tsx` | KPI card (Darkone pattern) |
+| `src/app/(admin)/dashboards/components/DossierStatusChart.tsx` | Donut chart component |
+| `src/app/(admin)/dashboards/components/TaskStatusChart.tsx` | Donut chart component |
+
+### Files Modified
+
+| File | Change |
+|------|--------|
+| `src/app/(admin)/dashboards/page.tsx` | Full dashboard with 6 KPIs + 2 charts |
+
+---
+
+### RLS Compliance
+
+| Table | Policy | Verified |
+|-------|--------|----------|
+| `rvm_dossier` | `rvm_dossier_select` | ✅ |
+| `rvm_meeting` | `rvm_meeting_select` | ✅ |
+| `rvm_task` | `rvm_task_select` | ✅ |
+
+All queries use Supabase client which enforces RLS via `auth.uid()`.
+
+---
+
+### Compliance Confirmations
+
+| Requirement | Status |
+|-------------|--------|
+| No demo/mock data | ✅ CONFIRMED |
+| Darkone 1:1 preserved | ✅ CONFIRMED |
+| No scope creep | ✅ CONFIRMED |
+| No new dependencies | ✅ CONFIRMED |
+| No SCSS modifications | ✅ CONFIRMED |
+| No auth changes | ✅ CONFIRMED |
+| No RLS changes | ✅ CONFIRMED |
+| No schema changes | ✅ CONFIRMED |
+
+---
+
+### Hard Stop Statement
+
+**Phase 7 is COMPLETE.**
+
+All checklist items verified. Dashboard implementation uses real Supabase data with RLS enforcement. Darkone 1:1 compliance maintained.
+
+Phase 8 (Audit Finalization) awaits explicit authorization.

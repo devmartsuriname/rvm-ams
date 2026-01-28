@@ -107,11 +107,9 @@ export function AuthProvider({ children }: ChildrenType) {
     }
     
     isProcessingRef.current = true
-    console.info('[Auth] Processing session:', !!session)
     
     try {
       if (session?.user && session.access_token) {
-        console.info('[Auth] Fetching app_user for:', session.user.id)
         const appUser = await mapSupabaseUserToAppUser(session.user, session.access_token)
         if (appUser) {
           setUser(appUser)
