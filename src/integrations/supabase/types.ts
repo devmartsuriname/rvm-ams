@@ -687,7 +687,11 @@ export type Database = {
       get_user_roles: { Args: never; Returns: string[] }
       has_any_role: { Args: { required_roles: string[] }; Returns: boolean }
       has_role: { Args: { required_role: string }; Returns: boolean }
+      is_decision_draft: { Args: { p_decision_id: string }; Returns: boolean }
+      is_dossier_editable: { Args: { p_dossier_id: string }; Returns: boolean }
+      is_meeting_editable: { Args: { p_meeting_id: string }; Returns: boolean }
       is_super_admin: { Args: never; Returns: boolean }
+      is_task_assignee: { Args: { p_task_id: string }; Returns: boolean }
     }
     Enums: {
       agenda_item_status: "scheduled" | "presented" | "withdrawn" | "moved"
