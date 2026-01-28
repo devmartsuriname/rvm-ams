@@ -1,6 +1,7 @@
 import DarkLogo from '@/assets/images/logo-dark.png'
 import LightLogo from '@/assets/images/logo-light.png'
 import TextFormInput from '@/components/from/TextFormInput'
+import PasswordFormInput from '@/components/from/PasswordFormInput'
 import { useEffect } from 'react'
 import { Card, CardBody, Col, Row } from 'react-bootstrap'
 import { Link } from 'react-router-dom'
@@ -44,7 +45,7 @@ const SignIn = () => {
                       <Link to="/auth/reset-password" className="float-end text-muted  ms-1">
                         Forgot password?
                       </Link>
-                      <TextFormInput control={control} name="password" placeholder="Enter your password" className="form-control" label="Password" />
+                      <PasswordFormInput control={control} name="password" placeholder="Enter your password" className="form-control" label="Password" />
                     </div>
 
                     <div className="form-check mb-3">

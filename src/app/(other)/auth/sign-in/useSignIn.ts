@@ -5,17 +5,12 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import * as yup from 'yup'
 
 import { supabase } from '@/integrations/supabase/client'
-import { useAuthContext } from '@/context/useAuthContext'
 import { useNotificationContext } from '@/context/useNotificationContext'
-import type { UserType } from '@/types/auth'
 
 const useSignIn = () => {
   const [loading, setLoading] = useState(false)
   const navigate = useNavigate()
-
-  const { saveSession } = useAuthContext()
   const [searchParams] = useSearchParams()
-
   const { showNotification } = useNotificationContext()
 
   const loginFormSchema = yup.object({
@@ -39,11 +34,15 @@ const useSignIn = () => {
     else navigate('/')
   }
 
+  /**
+   * Simplified login handler - only calls signInWithPassword
+   * Auth context's onAuthStateChange handles session mapping
+   * This removes the race condition caused by duplicate DB queries
+   */
   const login = handleSubmit(async (values: LoginFormFields) => {
     setLoading(true)
     try {
-      // Authenticate with Supabase
-      const { data, error } = await supabase.auth.signInWithPassword({
+      const { error } = await supabase.auth.signInWithPassword({
         email: values.email,
         password: values.password,
       })
@@ -56,70 +55,9 @@ const useSignIn = () => {
         return
       }
 
-      if (!data.user || !data.session) {
-        showNotification({ 
-          message: 'Sign in failed. Please try again.', 
-          variant: 'danger' 
-        })
-        return
-      }
-
-      // Fetch app_user data to build UserType
-      const { data: appUser, error: userError } = await supabase
-        .from('app_user')
-        .select('id, email, full_name, is_active')
-        .eq('auth_id', data.user.id)
-        .single()
-
-      if (userError || !appUser) {
-        showNotification({ 
-          message: 'User profile not found. Contact administrator.', 
-          variant: 'danger' 
-        })
-        await supabase.auth.signOut()
-        return
-      }
-
-      if (!appUser.is_active) {
-        showNotification({ 
-          message: 'Your account has been deactivated.', 
-          variant: 'danger' 
-        })
-        await supabase.auth.signOut()
-        return
-      }
-
-      // Fetch user roles
-      const { data: userRoles } = await supabase
-        .from('user_role')
-        .select('role_code')
-        .eq('user_id', appUser.id)
-
-      const roles = userRoles?.map(r => r.role_code) ?? []
-      const primaryRole = roles[0] ?? 'user'
-
-      // Parse name for Darkone compat
-      const nameParts = appUser.full_name.split(' ')
-      const firstName = nameParts[0] ?? ''
-      const lastName = nameParts.slice(1).join(' ') ?? ''
-
-      // Build user session object
-      const userSession: UserType = {
-        id: appUser.id,
-        auth_id: data.user.id,
-        email: appUser.email,
-        full_name: appUser.full_name,
-        username: appUser.email.split('@')[0],
-        firstName,
-        lastName,
-        role: primaryRole,
-        roles,
-        token: data.session.access_token,
-      }
-
-      saveSession(userSession)
+      // Success - auth context will handle session via onAuthStateChange
       showNotification({ 
-        message: 'Successfully logged in. Redirecting....', 
+        message: 'Successfully logged in. Redirecting...', 
         variant: 'success' 
       })
       redirectUser()
