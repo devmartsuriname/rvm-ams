@@ -3,6 +3,13 @@ import { Navigate, type RouteProps } from 'react-router-dom'
 
 const Dashboards = lazy(() => import('@/app/(admin)/dashboards/page'))
 
+// RVM Core Routes
+const DossierList = lazy(() => import('@/app/(admin)/rvm/dossiers/page'))
+const DossierDetail = lazy(() => import('@/app/(admin)/rvm/dossiers/[id]/page'))
+const MeetingList = lazy(() => import('@/app/(admin)/rvm/meetings/page'))
+const MeetingDetail = lazy(() => import('@/app/(admin)/rvm/meetings/[id]/page'))
+const TaskList = lazy(() => import('@/app/(admin)/rvm/tasks/page'))
+
 // Base UI Routes
 const Accordions = lazy(() => import('@/app/(admin)/base-ui/accordion/page'))
 const Alerts = lazy(() => import('@/app/(admin)/base-ui/alerts/page'))
@@ -27,7 +34,6 @@ const Toasts = lazy(() => import('@/app/(admin)/base-ui/toasts/page'))
 const Tooltips = lazy(() => import('@/app/(admin)/base-ui/tooltips/page'))
 
 // Charts and Maps Routes
-
 const Apex = lazy(() => import('@/app/(admin)/apex-chart/page'))
 const GoogleMaps = lazy(() => import('@/app/(admin)/maps/google/page'))
 const VectorMaps = lazy(() => import('@/app/(admin)/maps/vector/page'))
@@ -55,8 +61,7 @@ const LockScreen = lazy(() => import('@/app/(other)/auth/lock-screen/page'))
 const Error404 = lazy(() => import('@/app/(other)/error-pages/pages-404/page'))
 const ErrorAlt = lazy(() => import('@/app/(admin)/pages-404-alt/page'))
 
-//layoutsRoutes
-
+// Layout Routes
 const DarkSideNav = lazy(() => import('@/app/(admin)/(layouts)/dark-sidenav/page'))
 const DarkTopNav = lazy(() => import('@/app/(admin)/(layouts)/dark-topnav/page'))
 const SmallSideNav = lazy(() => import('@/app/(admin)/(layouts)/small-sidenav/page'))
@@ -83,6 +88,35 @@ const generalRoutes: RoutesProps[] = [
     path: '/dashboards',
     name: 'Dashboards',
     element: <Dashboards />,
+  },
+]
+
+// RVM Core Routes
+const rvmRoutes: RoutesProps[] = [
+  {
+    path: '/rvm/dossiers',
+    name: 'Dossiers',
+    element: <DossierList />,
+  },
+  {
+    path: '/rvm/dossiers/:id',
+    name: 'Dossier Detail',
+    element: <DossierDetail />,
+  },
+  {
+    path: '/rvm/meetings',
+    name: 'Meetings',
+    element: <MeetingList />,
+  },
+  {
+    path: '/rvm/meetings/:id',
+    name: 'Meeting Detail',
+    element: <MeetingDetail />,
+  },
+  {
+    path: '/rvm/tasks',
+    name: 'Tasks',
+    element: <TaskList />,
   },
 ]
 
@@ -331,6 +365,7 @@ const layoutsRoutes: RoutesProps[] = [
 export const appRoutes = [
   ...initialRoutes,
   // ...authRoutes,
+  ...rvmRoutes,
   ...baseUIRoutes,
   ...formsRoutes,
   ...generalRoutes,
