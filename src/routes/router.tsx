@@ -8,21 +8,33 @@ import { appRoutes, authRoutes } from '@/routes/index'
 import { useAuthContext } from '@/context/useAuthContext'
 
 const AppRouter = (props: RouteProps) => {
-  const { isAuthenticated } = useAuthContext()
+  const { isAuthenticated, isLoading } = useAuthContext()
+
+  // Show loading only for protected routes, not auth routes
+  // Auth routes should always be accessible
+  
   return (
     <ErrorBoundary>
       <Suspense fallback={<LoadingFallback />}>
         <Routes>
+          {/* Auth routes - always accessible */}
           {(authRoutes || []).map((route, idx) => (
-            <Route key={idx + route.name} path={route.path} element={<AuthLayout {...props}>{route.element}</AuthLayout>} />
+            <Route 
+              key={idx + route.name} 
+              path={route.path} 
+              element={<AuthLayout {...props}>{route.element}</AuthLayout>} 
+            />
           ))}
 
+          {/* Protected routes - require authentication */}
           {(appRoutes || []).map((route, idx) => (
             <Route
               key={idx + route.name}
               path={route.path}
               element={
-                isAuthenticated ? (
+                isLoading ? (
+                  <LoadingFallback />
+                ) : isAuthenticated ? (
                   <AdminLayout {...props}>{route.element}</AdminLayout>
                 ) : (
                   <Navigate
