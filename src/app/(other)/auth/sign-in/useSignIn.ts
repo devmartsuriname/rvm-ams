@@ -33,8 +33,14 @@ const useSignIn = () => {
 
   const redirectUser = () => {
     const redirectLink = searchParams.get('redirectTo')
-    if (redirectLink) navigate(redirectLink)
-    else navigate('/')
+    // Security: Validate redirectTo is internal path only (no open redirect)
+    if (redirectLink && redirectLink.startsWith('/') && !redirectLink.includes('://')) {
+      console.info('[SignIn] Redirecting to:', redirectLink)
+      navigate(redirectLink)
+    } else {
+      console.info('[SignIn] Redirecting to default: /dashboards')
+      navigate('/dashboards')
+    }
   }
 
   /**
@@ -47,7 +53,20 @@ const useSignIn = () => {
       console.info('[SignIn] Auth context confirmed, redirecting now')
       redirectUser()
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loginSuccess, isAuthenticated])
+
+  /**
+   * Auto-redirect users who are already authenticated
+   * Prevents showing sign-in page unnecessarily when user navigates here while logged in
+   */
+  useEffect(() => {
+    if (isAuthenticated && !loginSuccess) {
+      console.info('[SignIn] Already authenticated, redirecting...')
+      redirectUser()
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAuthenticated])
 
   /**
    * Simplified login handler - only calls signInWithPassword
