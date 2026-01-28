@@ -1,101 +1,184 @@
-# Project Plan — AMS–RVM Core (v1)
 
-## Phase Status Registry
+# Auth Consistency Fix — Deep Diagnosis & Implementation Plan
 
-| Phase | Name | Status | Restore Point |
-|-------|------|--------|---------------|
-| 1 | Foundation Layer | CLOSED | RP-P1-post-20260128.md |
-| 2 | Core Domain | CLOSED | RP-P2-post-20260128.md |
-| 3 | Workflow Engine | CLOSED | RP-P3-post-20260128.md |
-| 4 | Agenda Management | CLOSED | RP-P4-post-20260128.md |
-| 5 | Decision Management | CLOSED | RP-P5-post-20260128.md |
-| 6 | Auth Replacement | CLOSED | RP-P6-CLOSURE-20260128.md |
-| 7 | Reporting & Dashboards | **COMPLETE** | RP-P7-post-20260128.md |
-| 8 | Audit Finalization | PENDING | - |
+## Investigation Summary
 
----
+### Evidence from Console Logs (Screenshot Image 39)
+```
+[Auth] Initializing auth listener
+[Auth] State change: SIGNED_IN
+[Auth] Processing session: present
+[Auth] Safety timeout triggered - forcing loading complete
+[SignIn] Supabase auth succeeded, waiting for auth context...
+```
 
-## Phase 7 — Completion Report
-
-### Authorization Reference
-- **Project:** AMS–RVM Core (v1)
-- **Phase:** 7 — Reporting & Dashboards
-- **Completed:** 2026-01-28
-- **Mode:** STRICT (Darkone 1:1)
+### Evidence from Screenshot Image 42 (Live URL Failure)
+- URL: `preview--rvmams.lovable.app/dashboards`
+- Shows: Infinite loading spinner
+- Console: `[Auth] State change: SIGNED_IN` but page doesn't render
 
 ---
 
-### Implemented KPIs (6 Total)
+## ROOT CAUSE IDENTIFIED
 
-| # | KPI | Icon | Data Source | Query Type |
-|---|-----|------|-------------|------------|
-| 1 | Total Dossiers | bx:folder | `rvm_dossier` | COUNT(*) |
-| 2 | Active Dossiers | bx:folder-open | `rvm_dossier` | COUNT(*) WHERE status NOT IN (decided, archived, cancelled) |
-| 3 | Total Meetings | bx:calendar | `rvm_meeting` | COUNT(*) |
-| 4 | Upcoming Meetings | bx:calendar-event | `rvm_meeting` | COUNT(*) WHERE date >= TODAY AND status IN (draft, published) |
-| 5 | Total Tasks | bx:task | `rvm_task` | COUNT(*) |
-| 6 | Pending Tasks | bx:hourglass | `rvm_task` | COUNT(*) WHERE status IN (todo, in_progress) |
+**The redirect in `useSignIn.ts` is called BEFORE the auth context updates `isAuthenticated`.**
+
+### Current Code Flow (BROKEN):
+```
+1. User clicks "Sign In"
+2. signInWithPassword() succeeds
+3. redirectUser() called IMMEDIATELY ← BUG
+4. Navigation to /dashboards happens
+5. Router checks: isLoading? isAuthenticated?
+6. Auth context hasn't processed onAuthStateChange yet
+7. isLoading = true → Shows loading spinner indefinitely
+8. Safety timeout triggers → isLoading = false
+9. isAuthenticated = false → Redirect loop back to /auth/sign-in
+```
+
+### Why Editor Works But Live Fails:
+- Editor iframe has different timing/caching behavior
+- Live URL has full page navigation with stricter timing
+- The race condition is timing-dependent
 
 ---
 
-### Implemented Charts (2 Total)
+## WHAT WAS FOUND
 
-| Chart | Type | Data Source | RLS Enforced |
-|-------|------|-------------|--------------|
-| Dossiers by Status | Donut | `rvm_dossier.status` | ✅ YES |
-| Tasks by Status | Donut | `rvm_task.status` | ✅ YES |
+### File: `src/app/(other)/auth/sign-in/useSignIn.ts`
+| Line | Issue |
+|------|-------|
+| 63 | `redirectUser()` called immediately after login success, without waiting for auth context |
+
+### File: `src/context/useAuthContext.tsx`
+| Line | Issue |
+|------|-------|
+| 168 | `isLoading` in useEffect dependency array causes potential re-runs |
+| 104-107 | `isProcessingRef` guard may skip legitimate auth state changes |
 
 ---
 
-### Files Created
+## IMPLEMENTATION PLAN
 
-| File | Purpose |
-|------|---------|
-| `src/services/dashboardService.ts` | Parallel Supabase queries for all metrics |
-| `src/hooks/useDashboardStats.ts` | React Query hook with 5-minute cache |
-| `src/app/(admin)/dashboards/components/StatCard.tsx` | KPI card (Darkone pattern) |
-| `src/app/(admin)/dashboards/components/DossierStatusChart.tsx` | Donut chart component |
-| `src/app/(admin)/dashboards/components/TaskStatusChart.tsx` | Donut chart component |
+### Step 1: Create Pre-Implementation Restore Point
+- File: `Project Restore Points/RP-P2B-pre-20260128.md`
+- Captures current working state
 
-### Files Modified
+### Step 2: Fix `useSignIn.ts` — Remove Immediate Redirect
+**Current (BROKEN):**
+```typescript
+// Line 58-63
+showNotification({ 
+  message: 'Successfully logged in. Redirecting...', 
+  variant: 'success' 
+})
+redirectUser() // ← PROBLEM: Called before auth context updates
+```
 
-| File | Change |
+**Fixed:**
+```typescript
+// Remove direct redirectUser() call
+// Return loginSuccess state instead
+const [loginSuccess, setLoginSuccess] = useState(false)
+
+// In login function:
+setLoginSuccess(true)
+showNotification({ 
+  message: 'Successfully logged in. Redirecting...', 
+  variant: 'success' 
+})
+// DO NOT call redirectUser() here
+
+// Add useEffect that watches auth context:
+const { isAuthenticated } = useAuthContext()
+
+useEffect(() => {
+  if (loginSuccess && isAuthenticated) {
+    redirectUser()
+  }
+}, [loginSuccess, isAuthenticated])
+```
+
+### Step 3: Fix `useAuthContext.tsx` — Remove isLoading from Dependencies
+**Current (line 168):**
+```typescript
+}, [handleAuthChange, isLoading])
+```
+
+**Fixed:**
+```typescript
+}, [handleAuthChange]) // Remove isLoading to prevent re-initialization
+```
+
+### Step 4: Delete `fake-backend.ts` (Governance Compliance)
+- File to DELETE: `src/helpers/fake-backend.ts`
+- Remove any imports referencing it
+
+### Step 5: Create Post-Implementation Restore Point
+- File: `Project Restore Points/RP-P2B-post-20260128.md`
+
+---
+
+## FILES TO MODIFY
+
+| File | Action | Change |
+|------|--------|--------|
+| `src/app/(other)/auth/sign-in/useSignIn.ts` | MODIFY | Add useEffect for auth-context-aware redirect |
+| `src/context/useAuthContext.tsx` | MODIFY | Remove `isLoading` from useEffect deps |
+| `src/helpers/fake-backend.ts` | DELETE | Complete removal per governance |
+
+---
+
+## VERIFICATION CHECKLIST
+
+After implementation, verify on BOTH Preview and Live URL:
+
+| Check | Preview | Live |
+|-------|---------|------|
+| Login succeeds | ☐ | ☐ |
+| Dashboard renders (no spinner) | ☐ | ☐ |
+| Session persists after refresh | ☐ | ☐ |
+| No redirect loop | ☐ | ☐ |
+| No console auth errors | ☐ | ☐ |
+
+---
+
+## GOVERNANCE COMPLIANCE
+
+| Rule | Status |
 |------|--------|
-| `src/app/(admin)/dashboards/page.tsx` | Full dashboard with 6 KPIs + 2 charts |
+| No new auth logic added | ✅ Minimal fix only |
+| No workarounds | ✅ Proper fix of race condition |
+| Darkone 1:1 UI preserved | ✅ No UI changes |
+| fake-backend.ts removed | ✅ Will be deleted |
+| RLS not modified | ✅ No database changes |
 
 ---
 
-### RLS Compliance
+## EXPECTED DELIVERABLE
 
-| Table | Policy | Verified |
-|-------|--------|----------|
-| `rvm_dossier` | `rvm_dossier_select` | ✅ |
-| `rvm_meeting` | `rvm_meeting_select` | ✅ |
-| `rvm_task` | `rvm_task_select` | ✅ |
-
-All queries use Supabase client which enforces RLS via `auth.uid()`.
+Final report with:
+1. **What was found** — Race condition in redirect timing
+2. **What was removed** — fake-backend.ts
+3. **What was verified** — Login flow on both environments
+4. **Final status** — Auth consistency: FIXED / NOT FIXED
 
 ---
 
-### Compliance Confirmations
+## TECHNICAL DETAILS
 
-| Requirement | Status |
-|-------------|--------|
-| No demo/mock data | ✅ CONFIRMED |
-| Darkone 1:1 preserved | ✅ CONFIRMED |
-| No scope creep | ✅ CONFIRMED |
-| No new dependencies | ✅ CONFIRMED |
-| No SCSS modifications | ✅ CONFIRMED |
-| No auth changes | ✅ CONFIRMED |
-| No RLS changes | ✅ CONFIRMED |
-| No schema changes | ✅ CONFIRMED |
+### Corrected Login Flow (AFTER FIX):
+```
+1. User clicks "Sign In"
+2. signInWithPassword() succeeds
+3. setLoginSuccess(true) - flag set
+4. onAuthStateChange fires with SIGNED_IN
+5. handleAuthChange() processes session
+6. setIsAuthenticated(true), setIsLoading(false)
+7. useEffect in useSignIn detects: loginSuccess=true, isAuthenticated=true
+8. NOW redirectUser() is called
+9. Navigation to /dashboards
+10. Router sees isAuthenticated=true → Renders dashboard
+```
 
----
-
-### Hard Stop Statement
-
-**Phase 7 is COMPLETE.**
-
-All checklist items verified. Dashboard implementation uses real Supabase data with RLS enforcement. Darkone 1:1 compliance maintained.
-
-Phase 8 (Audit Finalization) awaits explicit authorization.
+This ensures the redirect only happens AFTER the auth context has confirmed the authenticated state.
