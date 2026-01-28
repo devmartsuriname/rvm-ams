@@ -94,50 +94,76 @@ export function AuthProvider({ children }: ChildrenType) {
   // Prevent concurrent auth processing (race condition fix)
   const isProcessingRef = useRef(false)
   const hasInitializedRef = useRef(false)
+  // Queue for sessions that arrive while processing (prevents dropping valid SIGNED_IN events)
+  const pendingSessionRef = useRef<Session | null | undefined>(undefined)
 
   /**
    * Handle session changes from Supabase auth
-   * Uses a processing flag to prevent race conditions
+   * Uses a processing flag with session queuing to prevent race conditions
+   * FIX: Instead of skipping duplicate events, queue them for processing
    */
   const handleAuthChange = useCallback(async (session: Session | null) => {
-    // Prevent concurrent processing
+    // If already processing, queue this session for later (don't skip it)
     if (isProcessingRef.current) {
-      console.info('[Auth] Skipping duplicate auth processing')
+      console.info('[Auth] Queuing session for processing')
+      pendingSessionRef.current = session
       return
     }
     
     isProcessingRef.current = true
+    console.info('[Auth] Processing session:', session ? 'present' : 'null')
     
     try {
       if (session?.user && session.access_token) {
         const appUser = await mapSupabaseUserToAppUser(session.user, session.access_token)
         if (appUser) {
+          console.info('[Auth] User mapped successfully:', appUser.email)
           setUser(appUser)
           setIsAuthenticated(true)
         } else {
           // Auth user exists but no app_user mapping
+          console.warn('[Auth] No app_user mapping found')
           setUser(undefined)
           setIsAuthenticated(false)
         }
       } else {
+        console.info('[Auth] No session, clearing auth state')
         setUser(undefined)
         setIsAuthenticated(false)
       }
+    } catch (error) {
+      console.error('[Auth] Error in handleAuthChange:', error)
+      setUser(undefined)
+      setIsAuthenticated(false)
     } finally {
       isProcessingRef.current = false
       setIsLoading(false)
+      
+      // Process queued session if any (prevents race condition from dropping SIGNED_IN)
+      if (pendingSessionRef.current !== undefined) {
+        const pendingSession = pendingSessionRef.current
+        pendingSessionRef.current = undefined
+        console.info('[Auth] Processing queued session')
+        // Use setTimeout to allow state to settle before processing next
+        setTimeout(() => handleAuthChange(pendingSession), 0)
+      }
     }
   }, [])
 
   /**
    * Initialize auth state on mount
+   * FIX: Rely ONLY on onAuthStateChange (fires with INITIAL_SESSION)
+   * Removed getSession() call that was racing with onAuthStateChange
    */
   useEffect(() => {
     // Prevent double initialization in StrictMode
     if (hasInitializedRef.current) return
     hasInitializedRef.current = true
 
-    // Set up auth state listener BEFORE checking initial session
+    console.info('[Auth] Initializing auth listener')
+
+    // Set up auth state listener - this fires with INITIAL_SESSION on load
+    // Per Supabase docs: "onAuthStateChange fires with the initial session too"
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         console.info('[Auth] State change:', event)
@@ -145,13 +171,8 @@ export function AuthProvider({ children }: ChildrenType) {
       }
     )
 
-    // Check initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      // Only process if not already handled by onAuthStateChange
-      if (!isProcessingRef.current) {
-        handleAuthChange(session)
-      }
-    })
+    // REMOVED: getSession() call that was racing with onAuthStateChange
+    // onAuthStateChange fires INITIAL_SESSION which handles initial session
 
     // Safety timeout: ensure isLoading is set to false after 10 seconds
     const safetyTimeout = setTimeout(() => {
