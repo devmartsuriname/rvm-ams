@@ -1,12 +1,11 @@
 import { yupResolver } from '@hookform/resolvers/yup'
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useForm } from 'react-hook-form'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import * as yup from 'yup'
 
 import { supabase } from '@/integrations/supabase/client'
 import { useNotificationContext } from '@/context/useNotificationContext'
-import { useAuthContext } from '@/context/useAuthContext'
 
 const useSignIn = () => {
   const [loading, setLoading] = useState(false)
@@ -14,7 +13,7 @@ const useSignIn = () => {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const { showNotification } = useNotificationContext()
-  const { isAuthenticated } = useAuthContext()
+  const hasRedirectedRef = useRef(false)
 
   const loginFormSchema = yup.object({
     email: yup.string().email('Please enter a valid email').required('Please enter your email'),
@@ -32,30 +31,47 @@ const useSignIn = () => {
   type LoginFormFields = yup.InferType<typeof loginFormSchema>
 
   const redirectUser = useCallback(() => {
+    if (hasRedirectedRef.current) return
+    hasRedirectedRef.current = true
+    
     const redirectLink = searchParams.get('redirectTo')
     if (redirectLink) navigate(redirectLink)
     else navigate('/')
   }, [searchParams, navigate])
 
   /**
-   * Reactive navigation: Wait for auth context to confirm authentication
-   * before navigating. This fixes the race condition where immediate
-   * navigation happened before onAuthStateChange updated isAuthenticated.
+   * Listen for auth state changes to detect when login is complete.
+   * This avoids depending on useAuthContext which may have timing issues.
    */
   useEffect(() => {
-    if (loginSuccess && isAuthenticated) {
-      console.info('[SignIn] Auth confirmed, redirecting...')
-      redirectUser()
-    }
-  }, [loginSuccess, isAuthenticated, redirectUser])
+    if (!loginSuccess) return
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_IN' && session) {
+        console.info('[SignIn] Auth state confirmed SIGNED_IN, redirecting...')
+        redirectUser()
+      }
+    })
+
+    // Also check current session in case event already fired
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) {
+        console.info('[SignIn] Session exists, redirecting...')
+        redirectUser()
+      }
+    })
+
+    return () => subscription.unsubscribe()
+  }, [loginSuccess, redirectUser])
 
   /**
-   * Simplified login handler - only calls signInWithPassword
-   * Auth context's onAuthStateChange handles session mapping
-   * Navigation is now reactive via useEffect above
+   * Login handler - calls signInWithPassword
+   * Navigation happens reactively via the auth state listener above
    */
   const login = handleSubmit(async (values: LoginFormFields) => {
     setLoading(true)
+    hasRedirectedRef.current = false
+    
     try {
       const { error } = await supabase.auth.signInWithPassword({
         email: values.email,
@@ -70,12 +86,12 @@ const useSignIn = () => {
         return
       }
 
-      // Success - signal login success, wait for auth context
+      // Success - signal login success, auth listener will handle redirect
       showNotification({ 
         message: 'Successfully logged in. Redirecting...', 
         variant: 'success' 
       })
-      setLoginSuccess(true) // Don't navigate here - useEffect will handle it
+      setLoginSuccess(true)
 
     } catch (e: unknown) {
       console.error('[SignIn] Error:', e)
