@@ -1,6 +1,6 @@
 import type { UserType } from '@/types/auth'
 import { supabase } from '@/integrations/supabase/client'
-import { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react'
+import { createContext, useContext, useState, useEffect, useCallback, useRef, type RefObject } from 'react'
 import { useNavigate } from 'react-router-dom'
 import type { ChildrenType } from '../types/component-props'
 import type { Session, User } from '@supabase/supabase-js'
@@ -94,6 +94,13 @@ export function AuthProvider({ children }: ChildrenType) {
   // Prevent concurrent auth processing (race condition fix)
   const isProcessingRef = useRef(false)
   const hasInitializedRef = useRef(false)
+  // Ref to track current isLoading state (fixes stale closure in safety timeout)
+  const isLoadingRef = useRef(isLoading)
+  
+  // Keep isLoadingRef in sync with isLoading state
+  useEffect(() => {
+    isLoadingRef.current = isLoading
+  }, [isLoading])
 
   /**
    * Handle session changes from Supabase auth
@@ -114,14 +121,17 @@ export function AuthProvider({ children }: ChildrenType) {
         if (appUser) {
           setUser(appUser)
           setIsAuthenticated(true)
+          console.info('[Auth] User authenticated successfully:', appUser.email)
         } else {
           // Auth user exists but no app_user mapping
           setUser(undefined)
           setIsAuthenticated(false)
+          console.warn('[Auth] User mapping failed - staying unauthenticated')
         }
       } else {
         setUser(undefined)
         setIsAuthenticated(false)
+        console.info('[Auth] No active session detected')
       }
     } finally {
       isProcessingRef.current = false
@@ -154,8 +164,9 @@ export function AuthProvider({ children }: ChildrenType) {
     })
 
     // Safety timeout: ensure isLoading is set to false after 10 seconds
+    // Uses ref to avoid stale closure capturing outdated isLoading value
     const safetyTimeout = setTimeout(() => {
-      if (isLoading) {
+      if (isLoadingRef.current) {
         console.warn('[Auth] Safety timeout triggered - forcing loading complete')
         setIsLoading(false)
       }
