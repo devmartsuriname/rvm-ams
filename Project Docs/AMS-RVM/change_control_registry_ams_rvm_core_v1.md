@@ -210,7 +210,7 @@ This document logs all **scope decisions**, **change requests**, and **governanc
 
 | Decision | Choice | Rationale | Date |
 |----------|--------|-----------|------|
-| Backend platform | Lovable Cloud (Supabase) | Integrated, no external accounts | TBD |
+| Backend platform | External Supabase (managed Supabase project) | Managed project, Hostinger VPS target | TBD |
 | Frontend framework | React (existing) | Darkone baseline | Existing |
 | State management | React Query | Server state focus | TBD |
 | Form handling | React Hook Form + Zod | Type-safe validation | TBD |

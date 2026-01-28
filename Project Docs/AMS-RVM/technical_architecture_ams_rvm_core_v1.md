@@ -30,8 +30,8 @@ This document translates the high-level **System Architecture – AMS RVM Core v
 - **Routing:** React Router DOM v6
 - **Forms:** React Hook Form + Zod validation
 
-### 2.2 Backend (Lovable Cloud)
-- **Database:** PostgreSQL (Supabase)
+### 2.2 Backend (External Supabase)
+- **Database:** PostgreSQL (External Supabase — managed Supabase project)
 - **Authentication:** Supabase Auth (email/password)
 - **API:** Supabase Client (auto-generated from schema)
 - **Storage:** Supabase Storage (documents)
