@@ -47,6 +47,26 @@ const AppRouter = (props: RouteProps) => {
               }
             />
           ))}
+
+          {/* Catch-all route for unknown paths */}
+          <Route
+            path="*"
+            element={
+              isLoading ? (
+                <LoadingFallback />
+              ) : isAuthenticated ? (
+                <Navigate to="/dashboards" replace />
+              ) : (
+                <Navigate
+                  to={{
+                    pathname: '/auth/sign-in',
+                    search: `redirectTo=${window.location.pathname}`,
+                  }}
+                  replace
+                />
+              )
+            }
+          />
         </Routes>
       </Suspense>
     </ErrorBoundary>
