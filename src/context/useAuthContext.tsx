@@ -165,8 +165,7 @@ export function AuthProvider({ children }: ChildrenType) {
       subscription.unsubscribe()
       clearTimeout(safetyTimeout)
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [handleAuthChange]) // Remove isLoading to prevent re-initialization loops
+  }, [handleAuthChange, isLoading])
 
   /**
    * Save session (called after successful sign-in)

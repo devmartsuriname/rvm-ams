@@ -1,20 +1,17 @@
 import { yupResolver } from '@hookform/resolvers/yup'
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import * as yup from 'yup'
 
 import { supabase } from '@/integrations/supabase/client'
 import { useNotificationContext } from '@/context/useNotificationContext'
-import { useAuthContext } from '@/context/useAuthContext'
 
 const useSignIn = () => {
   const [loading, setLoading] = useState(false)
-  const [loginSuccess, setLoginSuccess] = useState(false)
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const { showNotification } = useNotificationContext()
-  const { isAuthenticated } = useAuthContext()
 
   const loginFormSchema = yup.object({
     email: yup.string().email('Please enter a valid email').required('Please enter your email'),
@@ -38,21 +35,9 @@ const useSignIn = () => {
   }
 
   /**
-   * Effect that waits for BOTH login success AND auth context confirmation
-   * before redirecting. This fixes the race condition where redirect happened
-   * before isAuthenticated was updated.
-   */
-  useEffect(() => {
-    if (loginSuccess && isAuthenticated) {
-      console.info('[SignIn] Auth context confirmed, redirecting now')
-      redirectUser()
-    }
-  }, [loginSuccess, isAuthenticated])
-
-  /**
    * Simplified login handler - only calls signInWithPassword
    * Auth context's onAuthStateChange handles session mapping
-   * Redirect is deferred to useEffect to avoid race condition
+   * This removes the race condition caused by duplicate DB queries
    */
   const login = handleSubmit(async (values: LoginFormFields) => {
     setLoading(true)
@@ -70,14 +55,12 @@ const useSignIn = () => {
         return
       }
 
-      // Success - set flag and let useEffect handle redirect after auth context updates
-      console.info('[SignIn] Supabase auth succeeded, waiting for auth context...')
-      setLoginSuccess(true)
+      // Success - auth context will handle session via onAuthStateChange
       showNotification({ 
         message: 'Successfully logged in. Redirecting...', 
         variant: 'success' 
       })
-      // DO NOT call redirectUser() here - let useEffect handle it
+      redirectUser()
 
     } catch (e: unknown) {
       console.error('[SignIn] Error:', e)
