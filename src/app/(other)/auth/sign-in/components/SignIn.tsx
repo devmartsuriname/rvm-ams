@@ -4,23 +4,10 @@ import TextFormInput from '@/components/from/TextFormInput'
 import PasswordFormInput from '@/components/from/PasswordFormInput'
 import { useEffect } from 'react'
 import { Card, CardBody, Col, Row } from 'react-bootstrap'
-import { Link, useNavigate, useSearchParams } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import useSignIn from '../useSignIn'
-import { useAuthContext } from '@/context/useAuthContext'
 
 const SignIn = () => {
-  const { isAuthenticated } = useAuthContext()
-  const navigate = useNavigate()
-  const [searchParams] = useSearchParams()
-
-  // Reactive redirect: wait for auth context to confirm authentication
-  useEffect(() => {
-    if (isAuthenticated) {
-      const redirectTo = searchParams.get('redirectTo') || '/dashboards'
-      navigate(redirectTo, { replace: true })
-    }
-  }, [isAuthenticated, navigate, searchParams])
-
   useEffect(() => {
     document.body.classList.add('authentication-bg')
     return () => {

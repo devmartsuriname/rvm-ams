@@ -1,6 +1,7 @@
 import { yupResolver } from '@hookform/resolvers/yup'
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import * as yup from 'yup'
 
 import { supabase } from '@/integrations/supabase/client'
@@ -8,6 +9,8 @@ import { useNotificationContext } from '@/context/useNotificationContext'
 
 const useSignIn = () => {
   const [loading, setLoading] = useState(false)
+  const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const { showNotification } = useNotificationContext()
 
   const loginFormSchema = yup.object({
@@ -25,11 +28,16 @@ const useSignIn = () => {
 
   type LoginFormFields = yup.InferType<typeof loginFormSchema>
 
+  const redirectUser = () => {
+    const redirectLink = searchParams.get('redirectTo')
+    if (redirectLink) navigate(redirectLink)
+    else navigate('/')
+  }
+
   /**
    * Simplified login handler - only calls signInWithPassword
    * Auth context's onAuthStateChange handles session mapping
-   * SignIn component's useEffect handles redirect when isAuthenticated becomes true
-   * This eliminates the race condition between navigate() and async auth state updates
+   * This removes the race condition caused by duplicate DB queries
    */
   const login = handleSubmit(async (values: LoginFormFields) => {
     setLoading(true)
@@ -48,12 +56,11 @@ const useSignIn = () => {
       }
 
       // Success - auth context will handle session via onAuthStateChange
-      // SignIn component will redirect when isAuthenticated becomes true
       showNotification({ 
         message: 'Successfully logged in. Redirecting...', 
         variant: 'success' 
       })
-      // DO NOT navigate here - let the SignIn component handle it reactively
+      redirectUser()
 
     } catch (e: unknown) {
       console.error('[SignIn] Error:', e)
