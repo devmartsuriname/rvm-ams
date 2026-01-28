@@ -1,6 +1,6 @@
 import type { UserType } from '@/types/auth'
 import { supabase } from '@/integrations/supabase/client'
-import { createContext, useContext, useState, useEffect, useCallback } from 'react'
+import { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import type { ChildrenType } from '../types/component-props'
 import type { Session, User } from '@supabase/supabase-js'
@@ -90,32 +90,53 @@ export function AuthProvider({ children }: ChildrenType) {
   const [user, setUser] = useState<UserType | undefined>(undefined)
   const [isLoading, setIsLoading] = useState(true)
   const [isAuthenticated, setIsAuthenticated] = useState(false)
+  
+  // Prevent concurrent auth processing (race condition fix)
+  const isProcessingRef = useRef(false)
+  const hasInitializedRef = useRef(false)
 
   /**
    * Handle session changes from Supabase auth
+   * Uses a processing flag to prevent race conditions
    */
   const handleAuthChange = useCallback(async (session: Session | null) => {
-    if (session?.user && session.access_token) {
-      const appUser = await mapSupabaseUserToAppUser(session.user, session.access_token)
-      if (appUser) {
-        setUser(appUser)
-        setIsAuthenticated(true)
+    // Prevent concurrent processing
+    if (isProcessingRef.current) {
+      console.info('[Auth] Skipping duplicate auth processing')
+      return
+    }
+    
+    isProcessingRef.current = true
+    
+    try {
+      if (session?.user && session.access_token) {
+        const appUser = await mapSupabaseUserToAppUser(session.user, session.access_token)
+        if (appUser) {
+          setUser(appUser)
+          setIsAuthenticated(true)
+        } else {
+          // Auth user exists but no app_user mapping
+          setUser(undefined)
+          setIsAuthenticated(false)
+        }
       } else {
-        // Auth user exists but no app_user mapping
         setUser(undefined)
         setIsAuthenticated(false)
       }
-    } else {
-      setUser(undefined)
-      setIsAuthenticated(false)
+    } finally {
+      isProcessingRef.current = false
+      setIsLoading(false)
     }
-    setIsLoading(false)
   }, [])
 
   /**
    * Initialize auth state on mount
    */
   useEffect(() => {
+    // Prevent double initialization in StrictMode
+    if (hasInitializedRef.current) return
+    hasInitializedRef.current = true
+
     // Set up auth state listener BEFORE checking initial session
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
@@ -126,13 +147,25 @@ export function AuthProvider({ children }: ChildrenType) {
 
     // Check initial session
     supabase.auth.getSession().then(({ data: { session } }) => {
-      handleAuthChange(session)
+      // Only process if not already handled by onAuthStateChange
+      if (!isProcessingRef.current) {
+        handleAuthChange(session)
+      }
     })
+
+    // Safety timeout: ensure isLoading is set to false after 10 seconds
+    const safetyTimeout = setTimeout(() => {
+      if (isLoading) {
+        console.warn('[Auth] Safety timeout triggered - forcing loading complete')
+        setIsLoading(false)
+      }
+    }, 10000)
 
     return () => {
       subscription.unsubscribe()
+      clearTimeout(safetyTimeout)
     }
-  }, [handleAuthChange])
+  }, [handleAuthChange, isLoading])
 
   /**
    * Save session (called after successful sign-in)
