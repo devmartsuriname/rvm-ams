@@ -1,184 +1,195 @@
 
-# Auth Consistency Fix — Deep Diagnosis & Implementation Plan
+# Route Hygiene — Remove Darkone Demo Routes, Keep RVM-Only
 
-## Investigation Summary
+## Route Inventory Table
 
-### Evidence from Console Logs (Screenshot Image 39)
-```
-[Auth] Initializing auth listener
-[Auth] State change: SIGNED_IN
-[Auth] Processing session: present
-[Auth] Safety timeout triggered - forcing loading complete
-[SignIn] Supabase auth succeeded, waiting for auth context...
-```
+### ALLOWED Routes (RVM-ONLY Allowlist)
 
-### Evidence from Screenshot Image 42 (Live URL Failure)
-- URL: `preview--rvmams.lovable.app/dashboards`
-- Shows: Infinite loading spinner
-- Console: `[Auth] State change: SIGNED_IN` but page doesn't render
+| Route | Status | Source |
+|-------|--------|--------|
+| `/` | KEEP | Redirects to `/dashboards` |
+| `/dashboards` | KEEP | RVM Dashboard |
+| `/rvm/dossiers` | KEEP | Dossier list |
+| `/rvm/dossiers/:id` | KEEP | Dossier detail |
+| `/rvm/meetings` | KEEP | Meeting list |
+| `/rvm/meetings/:id` | KEEP | Meeting detail |
+| `/rvm/tasks` | KEEP | Task list |
+| `/auth/sign-in` | KEEP | Authentication |
+| `*` (catch-all) | ADD | 404 handler with redirect |
 
----
+### DEMO Routes (TO REMOVE from router)
 
-## ROOT CAUSE IDENTIFIED
+| Route | Count | Action |
+|-------|-------|--------|
+| `/base-ui/*` | 21 routes | Remove from router registry |
+| `/forms/*` | 5 routes | Remove from router registry |
+| `/apex-chart` | 1 route | Remove from router registry |
+| `/maps/*` | 2 routes | Remove from router registry |
+| `/tables/*` | 2 routes | Remove from router registry |
+| `/icons/*` | 2 routes | Remove from router registry |
+| `/dark-sidenav`, `/dark-topnav`, `/small-sidenav`, `/hidden-sidenav`, `/dark-mode` | 5 routes | Remove from router registry |
+| `/pages-404-alt` | 1 route | Keep file, use for catch-all |
 
-**The redirect in `useSignIn.ts` is called BEFORE the auth context updates `isAuthenticated`.**
-
-### Current Code Flow (BROKEN):
-```
-1. User clicks "Sign In"
-2. signInWithPassword() succeeds
-3. redirectUser() called IMMEDIATELY ← BUG
-4. Navigation to /dashboards happens
-5. Router checks: isLoading? isAuthenticated?
-6. Auth context hasn't processed onAuthStateChange yet
-7. isLoading = true → Shows loading spinner indefinitely
-8. Safety timeout triggers → isLoading = false
-9. isAuthenticated = false → Redirect loop back to /auth/sign-in
-```
-
-### Why Editor Works But Live Fails:
-- Editor iframe has different timing/caching behavior
-- Live URL has full page navigation with stricter timing
-- The race condition is timing-dependent
+**Total Demo Routes to Remove: 39**
 
 ---
 
-## WHAT WAS FOUND
+## Sidebar/Menu Status
 
-### File: `src/app/(other)/auth/sign-in/useSignIn.ts`
-| Line | Issue |
-|------|-------|
-| 63 | `redirectUser()` called immediately after login success, without waiting for auth context |
+**ALREADY CLEAN** - Menu only contains RVM routes:
+- Dashboard (`/dashboards`)
+- Dossiers (`/rvm/dossiers`)
+- Meetings (`/rvm/meetings`)
+- Tasks (`/rvm/tasks`)
 
-### File: `src/context/useAuthContext.tsx`
-| Line | Issue |
-|------|-------|
-| 168 | `isLoading` in useEffect dependency array causes potential re-runs |
-| 104-107 | `isProcessingRef` guard may skip legitimate auth state changes |
+No changes needed to `src/assets/data/menu-items.ts`.
 
 ---
 
-## IMPLEMENTATION PLAN
+## Implementation Plan
 
-### Step 1: Create Pre-Implementation Restore Point
-- File: `Project Restore Points/RP-P2B-pre-20260128.md`
-- Captures current working state
+### Step 0: Create Pre-Implementation Restore Point
+**File**: `Project Restore Points/RP-P2C-routes-pre.md`
 
-### Step 2: Fix `useSignIn.ts` — Remove Immediate Redirect
-**Current (BROKEN):**
-```typescript
-// Line 58-63
-showNotification({ 
-  message: 'Successfully logged in. Redirecting...', 
-  variant: 'success' 
-})
-redirectUser() // ← PROBLEM: Called before auth context updates
-```
+### Step 1: Clean Up Route Registry
+**File**: `src/routes/index.tsx`
 
-**Fixed:**
-```typescript
-// Remove direct redirectUser() call
-// Return loginSuccess state instead
-const [loginSuccess, setLoginSuccess] = useState(false)
+Changes:
+1. Remove lazy imports for demo components (base-ui, forms, charts, maps, tables, icons, layouts)
+2. Remove route array definitions: `baseUIRoutes`, `formsRoutes`, `chartsMapsRoutes`, `tableRoutes`, `iconRoutes`, `layoutsRoutes`
+3. Update `appRoutes` export to include ONLY:
+   - `initialRoutes` (root redirect)
+   - `generalRoutes` (dashboards)
+   - `rvmRoutes` (dossiers, meetings, tasks)
+4. Keep `ErrorAlt` import for 404 page
 
-// In login function:
-setLoginSuccess(true)
-showNotification({ 
-  message: 'Successfully logged in. Redirecting...', 
-  variant: 'success' 
-})
-// DO NOT call redirectUser() here
+### Step 2: Add Catch-All Route
+**File**: `src/routes/router.tsx`
 
-// Add useEffect that watches auth context:
-const { isAuthenticated } = useAuthContext()
+Add a catch-all route (`*`) that:
+- If authenticated → Navigate to `/dashboards`
+- If not authenticated → Navigate to `/auth/sign-in?redirectTo=<original-path>`
 
-useEffect(() => {
-  if (loginSuccess && isAuthenticated) {
-    redirectUser()
-  }
-}, [loginSuccess, isAuthenticated])
-```
+### Step 3: Keep Source Files (DO NOT DELETE)
+The demo component files in `src/app/(admin)/base-ui/`, `src/app/(admin)/forms/`, etc. will be KEPT.
 
-### Step 3: Fix `useAuthContext.tsx` — Remove isLoading from Dependencies
-**Current (line 168):**
-```typescript
-}, [handleAuthChange, isLoading])
-```
+Rationale: These are Darkone reference components needed for 1:1 parity. They are just unregistered from the router, not deleted.
 
-**Fixed:**
-```typescript
-}, [handleAuthChange]) // Remove isLoading to prevent re-initialization
-```
-
-### Step 4: Delete `fake-backend.ts` (Governance Compliance)
-- File to DELETE: `src/helpers/fake-backend.ts`
-- Remove any imports referencing it
-
-### Step 5: Create Post-Implementation Restore Point
-- File: `Project Restore Points/RP-P2B-post-20260128.md`
+### Step 4: Create Post-Implementation Restore Point
+**File**: `Project Restore Points/RP-P2C-routes-post.md`
 
 ---
 
-## FILES TO MODIFY
+## Files Changed Summary
 
 | File | Action | Change |
 |------|--------|--------|
-| `src/app/(other)/auth/sign-in/useSignIn.ts` | MODIFY | Add useEffect for auth-context-aware redirect |
-| `src/context/useAuthContext.tsx` | MODIFY | Remove `isLoading` from useEffect deps |
-| `src/helpers/fake-backend.ts` | DELETE | Complete removal per governance |
+| `src/routes/index.tsx` | MODIFY | Remove 39 demo routes from appRoutes |
+| `src/routes/router.tsx` | MODIFY | Add catch-all route handler |
+| `src/assets/data/menu-items.ts` | NO CHANGE | Already RVM-only |
+| `Project Restore Points/RP-P2C-routes-pre.md` | CREATE | Pre-implementation snapshot |
+| `Project Restore Points/RP-P2C-routes-post.md` | CREATE | Post-implementation snapshot |
 
 ---
 
-## VERIFICATION CHECKLIST
+## Technical Details
 
-After implementation, verify on BOTH Preview and Live URL:
+### Updated `src/routes/index.tsx` Structure
 
-| Check | Preview | Live |
-|-------|---------|------|
-| Login succeeds | ☐ | ☐ |
-| Dashboard renders (no spinner) | ☐ | ☐ |
-| Session persists after refresh | ☐ | ☐ |
-| No redirect loop | ☐ | ☐ |
-| No console auth errors | ☐ | ☐ |
+```text
+KEEP:
+- Dashboards lazy import
+- RVM Core Routes lazy imports (DossierList, DossierDetail, etc.)
+- AuthSignIn lazy import
+- ErrorAlt lazy import (for 404)
+- initialRoutes (root redirect)
+- generalRoutes (dashboards)
+- rvmRoutes
+- authRoutes
+
+REMOVE:
+- All base-ui lazy imports (21)
+- All forms lazy imports (5)
+- Apex, GoogleMaps, VectorMaps imports
+- BasicTable, GridjsTable imports
+- BoxIcons, SolarIcons imports
+- Layout demo imports (5)
+- baseUIRoutes array
+- formsRoutes array
+- chartsMapsRoutes array (except ErrorAlt)
+- tableRoutes array
+- iconRoutes array
+- layoutsRoutes array
+```
+
+### Catch-All Route Logic
+
+```typescript
+// In router.tsx - add after protected routes
+<Route
+  path="*"
+  element={
+    isAuthenticated ? (
+      <Navigate to="/dashboards" replace />
+    ) : (
+      <Navigate
+        to={{
+          pathname: '/auth/sign-in',
+          search: `redirectTo=${window.location.pathname}`,
+        }}
+        replace
+      />
+    )
+  }
+/>
+```
 
 ---
 
-## GOVERNANCE COMPLIANCE
+## Verification Matrix
+
+After implementation, test these scenarios:
+
+| # | URL | Expected Behavior |
+|---|-----|-------------------|
+| 1 | `/auth/sign-in` (direct) | Shows sign-in page |
+| 2 | `/auth/sign-in?redirectTo=/dashboards` | Login redirects to /dashboards |
+| 3 | `/dashboards` (direct, authenticated) | Shows dashboard |
+| 4 | `/base-ui/buttons` (demo route) | Redirects to /dashboards (if auth) or /auth/sign-in (if not) |
+| 5 | `/forms/basic` (demo route) | Same redirect behavior |
+| 6 | `/nonexistent-route` | Same redirect behavior |
+| 7 | Refresh on `/dashboards` | Session persists |
+
+Test on both:
+- `rvmams.lovable.app`
+- `preview--rvmams.lovable.app`
+
+---
+
+## Governance Compliance
 
 | Rule | Status |
 |------|--------|
-| No new auth logic added | ✅ Minimal fix only |
-| No workarounds | ✅ Proper fix of race condition |
-| Darkone 1:1 UI preserved | ✅ No UI changes |
-| fake-backend.ts removed | ✅ Will be deleted |
-| RLS not modified | ✅ No database changes |
+| Darkone 1:1 parity | Compliant - Source files kept, just unregistered |
+| No UI styling changes | Compliant |
+| No new features | Compliant |
+| No database/RLS changes | Compliant |
+| No fake backend files | Compliant |
+| Restore points created | Will create pre/post |
 
 ---
 
-## EXPECTED DELIVERABLE
+## Documentation Updates
 
-Final report with:
-1. **What was found** — Race condition in redirect timing
-2. **What was removed** — fake-backend.ts
-3. **What was verified** — Login flow on both environments
-4. **Final status** — Auth consistency: FIXED / NOT FIXED
+No `/docs/backend.md` or `/docs/architecture.md` files exist. If needed, can document changes in:
+- `Project Docs/AMS-RVM/` directory (existing documentation location)
 
 ---
 
-## TECHNICAL DETAILS
+## Expected Deliverable
 
-### Corrected Login Flow (AFTER FIX):
-```
-1. User clicks "Sign In"
-2. signInWithPassword() succeeds
-3. setLoginSuccess(true) - flag set
-4. onAuthStateChange fires with SIGNED_IN
-5. handleAuthChange() processes session
-6. setIsAuthenticated(true), setIsLoading(false)
-7. useEffect in useSignIn detects: loginSuccess=true, isAuthenticated=true
-8. NOW redirectUser() is called
-9. Navigation to /dashboards
-10. Router sees isAuthenticated=true → Renders dashboard
-```
-
-This ensures the redirect only happens AFTER the auth context has confirmed the authenticated state.
+After implementation:
+1. Only 8 routes registered (/, /dashboards, /rvm/*, /auth/sign-in, *)
+2. All demo routes return 404/redirect behavior
+3. Menu unchanged (already RVM-only)
+4. Verification matrix passes on live + preview
