@@ -1,101 +1,142 @@
-# Project Plan — AMS–RVM Core (v1)
 
-## Phase Status Registry
+# Fix: Login Redirect Race Condition
 
-| Phase | Name | Status | Restore Point |
-|-------|------|--------|---------------|
-| 1 | Foundation Layer | CLOSED | RP-P1-post-20260128.md |
-| 2 | Core Domain | CLOSED | RP-P2-post-20260128.md |
-| 3 | Workflow Engine | CLOSED | RP-P3-post-20260128.md |
-| 4 | Agenda Management | CLOSED | RP-P4-post-20260128.md |
-| 5 | Decision Management | CLOSED | RP-P5-post-20260128.md |
-| 6 | Auth Replacement | CLOSED | RP-P6-CLOSURE-20260128.md |
-| 7 | Reporting & Dashboards | **COMPLETE** | RP-P7-post-20260128.md |
-| 8 | Audit Finalization | PENDING | - |
+## Problem Summary
+After successful Supabase login, `useSignIn` navigates immediately before `onAuthStateChange` can update the auth state. The router then sees `isAuthenticated = false` and redirects back to sign-in.
+
+## Solution: Reactive Navigation
+
+Instead of navigating immediately after `signInWithPassword()`, wait for the auth context to confirm authentication, then navigate.
 
 ---
 
-## Phase 7 — Completion Report
+## Files to Modify
 
-### Authorization Reference
-- **Project:** AMS–RVM Core (v1)
-- **Phase:** 7 — Reporting & Dashboards
-- **Completed:** 2026-01-28
-- **Mode:** STRICT (Darkone 1:1)
+### 1. `src/app/(other)/auth/sign-in/useSignIn.ts`
 
----
+**Current (broken):**
+```typescript
+const login = handleSubmit(async (values) => {
+  const { error } = await supabase.auth.signInWithPassword(...)
+  if (!error) {
+    showNotification({ message: 'Successfully logged in. Redirecting...' })
+    redirectUser() // ← IMMEDIATE navigation - auth state not ready!
+  }
+})
+```
 
-### Implemented KPIs (6 Total)
+**Fixed (reactive):**
+```typescript
+import { useAuthContext } from '@/context/useAuthContext'
 
-| # | KPI | Icon | Data Source | Query Type |
-|---|-----|------|-------------|------------|
-| 1 | Total Dossiers | bx:folder | `rvm_dossier` | COUNT(*) |
-| 2 | Active Dossiers | bx:folder-open | `rvm_dossier` | COUNT(*) WHERE status NOT IN (decided, archived, cancelled) |
-| 3 | Total Meetings | bx:calendar | `rvm_meeting` | COUNT(*) |
-| 4 | Upcoming Meetings | bx:calendar-event | `rvm_meeting` | COUNT(*) WHERE date >= TODAY AND status IN (draft, published) |
-| 5 | Total Tasks | bx:task | `rvm_task` | COUNT(*) |
-| 6 | Pending Tasks | bx:hourglass | `rvm_task` | COUNT(*) WHERE status IN (todo, in_progress) |
+const useSignIn = () => {
+  const { isAuthenticated } = useAuthContext()
+  const [loginSuccess, setLoginSuccess] = useState(false)
+  
+  // Navigate ONLY when auth state confirms authentication
+  useEffect(() => {
+    if (loginSuccess && isAuthenticated) {
+      redirectUser()
+    }
+  }, [loginSuccess, isAuthenticated])
 
----
-
-### Implemented Charts (2 Total)
-
-| Chart | Type | Data Source | RLS Enforced |
-|-------|------|-------------|--------------|
-| Dossiers by Status | Donut | `rvm_dossier.status` | ✅ YES |
-| Tasks by Status | Donut | `rvm_task.status` | ✅ YES |
-
----
-
-### Files Created
-
-| File | Purpose |
-|------|---------|
-| `src/services/dashboardService.ts` | Parallel Supabase queries for all metrics |
-| `src/hooks/useDashboardStats.ts` | React Query hook with 5-minute cache |
-| `src/app/(admin)/dashboards/components/StatCard.tsx` | KPI card (Darkone pattern) |
-| `src/app/(admin)/dashboards/components/DossierStatusChart.tsx` | Donut chart component |
-| `src/app/(admin)/dashboards/components/TaskStatusChart.tsx` | Donut chart component |
-
-### Files Modified
-
-| File | Change |
-|------|--------|
-| `src/app/(admin)/dashboards/page.tsx` | Full dashboard with 6 KPIs + 2 charts |
+  const login = handleSubmit(async (values) => {
+    const { error } = await supabase.auth.signInWithPassword(...)
+    if (!error) {
+      showNotification({ message: 'Successfully logged in. Redirecting...' })
+      setLoginSuccess(true) // ← Signal success, wait for auth context
+      // Don't navigate here!
+    }
+  })
+}
+```
 
 ---
 
-### RLS Compliance
+### 2. `src/context/useAuthContext.tsx` (Minor Enhancement)
 
-| Table | Policy | Verified |
-|-------|--------|----------|
-| `rvm_dossier` | `rvm_dossier_select` | ✅ |
-| `rvm_meeting` | `rvm_meeting_select` | ✅ |
-| `rvm_task` | `rvm_task_select` | ✅ |
+Add a debug log to confirm auth state changes are being processed:
 
-All queries use Supabase client which enforces RLS via `auth.uid()`.
+```typescript
+const handleAuthChange = useCallback(async (session: Session | null) => {
+  if (isProcessingRef.current) {
+    console.info('[Auth] Skipping duplicate auth processing')
+    return
+  }
+  
+  isProcessingRef.current = true
+  console.info('[Auth] Processing session:', !!session) // ← Add this
+  
+  try {
+    if (session?.user && session.access_token) {
+      console.info('[Auth] Fetching app_user for:', session.user.id) // ← Add this
+      const appUser = await mapSupabaseUserToAppUser(session.user, session.access_token)
+      // ... rest of code
+    }
+  }
+})
+```
 
 ---
 
-### Compliance Confirmations
+## Technical Details
 
-| Requirement | Status |
-|-------------|--------|
-| No demo/mock data | ✅ CONFIRMED |
-| Darkone 1:1 preserved | ✅ CONFIRMED |
-| No scope creep | ✅ CONFIRMED |
-| No new dependencies | ✅ CONFIRMED |
-| No SCSS modifications | ✅ CONFIRMED |
-| No auth changes | ✅ CONFIRMED |
-| No RLS changes | ✅ CONFIRMED |
-| No schema changes | ✅ CONFIRMED |
+### Why This Fix Works
+
+```text
+Before (Race Condition):
+┌─────────────┐    ┌──────────────┐    ┌───────────┐
+│ signIn()    │───►│ navigate('/') │───►│ Router    │
+│ succeeds    │    │ immediately  │    │ checks    │
+└─────────────┘    └──────────────┘    │ isAuth=   │
+                                       │ FALSE     │
+                                       └───────────┘
+                                            │
+                                            ▼
+                                   ┌──────────────────┐
+                                   │ Redirect to      │
+                                   │ /auth/sign-in    │
+                                   └──────────────────┘
+
+After (Reactive):
+┌─────────────┐    ┌──────────────┐    ┌───────────┐
+│ signIn()    │───►│ setLoginSuc- │    │ onAuthSt- │
+│ succeeds    │    │ cess(true)   │    │ ateChange │
+└─────────────┘    └──────────────┘    │ fires     │
+                          │            └───────────┘
+                          │                  │
+                          ▼                  ▼
+                   ┌──────────────────────────────┐
+                   │ useEffect watches:           │
+                   │ loginSuccess && isAuth       │
+                   │ ──────────────────────       │
+                   │ When BOTH true → navigate()  │
+                   └──────────────────────────────┘
+```
+
+### Changes Summary
+
+| File | Change | Risk |
+|------|--------|------|
+| `useSignIn.ts` | Add reactive navigation via useEffect | Low - isolated to login flow |
+| `useAuthContext.tsx` | Add debug logs (optional) | None - logging only |
 
 ---
 
-### Hard Stop Statement
+## Governance Compliance
 
-**Phase 7 is COMPLETE.**
+- ❌ NO auth logic changes (same Supabase flow)
+- ❌ NO RLS changes
+- ❌ NO schema changes
+- ❌ NO UI changes (same form, same toast)
+- ✅ Bug fix only - timing/sequencing improvement
 
-All checklist items verified. Dashboard implementation uses real Supabase data with RLS enforcement. Darkone 1:1 compliance maintained.
+---
 
-Phase 8 (Audit Finalization) awaits explicit authorization.
+## Verification Steps
+
+1. Sign in with `info@devmart.sr`
+2. Confirm success toast appears
+3. Confirm redirect to `/dashboards` (not back to sign-in)
+4. Confirm no console errors
+5. Confirm no safety timeout warnings
