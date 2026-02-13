@@ -2,7 +2,7 @@ import Footer from '@/components/layout/Footer'
 import PageTitle from '@/components/PageTitle'
 import { Card, CardBody, CardHeader, Table, Form, Row, Col, Button, Nav } from 'react-bootstrap'
 import { Link } from 'react-router-dom'
-import { useTasks } from '@/hooks/useTasks'
+import { useTasks, useUpdateTask } from '@/hooks/useTasks'
 import { TaskStatusBadge, PriorityBadge } from '@/components/rvm/StatusBadges'
 import { EmptyState, LoadingState, ErrorState } from '@/components/rvm/StateComponents'
 import { useState } from 'react'
@@ -10,6 +10,9 @@ import type { Enums } from '@/integrations/supabase/types'
 import { useUserRoles } from '@/hooks/useUserRoles'
 import CreateTaskModal from '@/components/rvm/CreateTaskModal'
 import TaskStatusActions from '@/components/rvm/TaskStatusActions'
+import EditTaskForm, { type TaskFormData } from '@/components/rvm/EditTaskForm'
+import { toast } from 'react-toastify'
+import { getErrorMessage } from '@/utils/rls-error'
 
 type TaskStatus = Enums<'task_status'>
 
@@ -17,7 +20,9 @@ const TaskListPage = () => {
   const [statusFilter, setStatusFilter] = useState<TaskStatus | ''>('')
   const [activeTab, setActiveTab] = useState<'all' | 'pending' | 'done'>('all')
   const [showCreate, setShowCreate] = useState(false)
-  const { canCreateTask } = useUserRoles()
+  const [editingTaskId, setEditingTaskId] = useState<string | null>(null)
+  const { canCreateTask, canEditTask } = useUserRoles()
+  const updateTask = useUpdateTask()
 
   const getStatusFromTab = (): TaskStatus | undefined => {
     if (activeTab === 'pending') return 'todo'
@@ -28,6 +33,28 @@ const TaskListPage = () => {
   const { data: tasks, isLoading, error, refetch } = useTasks({
     status: getStatusFromTab(),
   })
+
+  const handleSaveTask = async (formData: TaskFormData) => {
+    if (!editingTaskId) return
+    try {
+      await updateTask.mutateAsync({
+        id: editingTaskId,
+        data: {
+          title: formData.title,
+          task_type: formData.task_type,
+          assigned_role_code: formData.assigned_role_code,
+          priority: formData.priority,
+          due_at: formData.due_at,
+          description: formData.description,
+        },
+      })
+      toast.success('Task updated successfully')
+      setEditingTaskId(null)
+      refetch()
+    } catch (error) {
+      toast.error(getErrorMessage(error))
+    }
+  }
 
   const formatDate = (dateString: string | null | undefined) => {
     if (!dateString) return '-'
@@ -168,35 +195,60 @@ const TaskListPage = () => {
               </thead>
               <tbody>
                 {tasks.map((task) => (
-                  <tr key={task.id} className={isOverdue(task.due_at, task.status) ? 'table-danger' : ''}>
-                    <td className="text-truncate" style={{ maxWidth: '200px' }}>
-                      {task.title}
-                    </td>
-                    <td>
-                      {task.rvm_dossier ? (
-                        <Link to={`/rvm/dossiers/${task.rvm_dossier.id}`} className="text-primary">
-                          {task.rvm_dossier.dossier_number}
-                        </Link>
-                      ) : '-'}
-                    </td>
-                    <td>
-                      <span className="badge bg-light text-dark">
-                        {getTaskTypeLabel(task.task_type)}
-                      </span>
-                    </td>
-                    <td><PriorityBadge priority={task.priority} /></td>
-                    <td><TaskStatusBadge status={task.status} /></td>
-                    <td className={isOverdue(task.due_at, task.status) ? 'text-danger fw-medium' : ''}>
-                      {formatDate(task.due_at)}
-                    </td>
-                    <td>
-                      <TaskStatusActions
-                        taskId={task.id}
-                        currentStatus={task.status}
-                        hasAssignee={!!task.assigned_user_id}
-                      />
-                    </td>
-                  </tr>
+                  <>
+                    <tr key={task.id} className={isOverdue(task.due_at, task.status) ? 'table-danger' : ''}>
+                      <td className="text-truncate" style={{ maxWidth: '200px' }}>
+                        {task.title}
+                      </td>
+                      <td>
+                        {task.rvm_dossier ? (
+                          <Link to={`/rvm/dossiers/${task.rvm_dossier.id}`} className="text-primary">
+                            {task.rvm_dossier.dossier_number}
+                          </Link>
+                        ) : '-'}
+                      </td>
+                      <td>
+                        <span className="badge bg-light text-dark">
+                          {getTaskTypeLabel(task.task_type)}
+                        </span>
+                      </td>
+                      <td><PriorityBadge priority={task.priority} /></td>
+                      <td><TaskStatusBadge status={task.status} /></td>
+                      <td className={isOverdue(task.due_at, task.status) ? 'text-danger fw-medium' : ''}>
+                        {formatDate(task.due_at)}
+                      </td>
+                      <td>
+                        <div className="d-flex gap-1 align-items-center">
+                          <TaskStatusActions
+                            taskId={task.id}
+                            currentStatus={task.status}
+                            hasAssignee={!!task.assigned_user_id}
+                          />
+                          {canEditTask && editingTaskId !== task.id && (
+                            <Button
+                              size="sm"
+                              variant="outline-primary"
+                              onClick={() => setEditingTaskId(task.id)}
+                            >
+                              Edit
+                            </Button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                    {editingTaskId === task.id && (
+                      <tr key={`${task.id}-edit`}>
+                        <td colSpan={7}>
+                          <EditTaskForm
+                            task={task}
+                            onSave={handleSaveTask}
+                            onCancel={() => setEditingTaskId(null)}
+                            isLoading={updateTask.isPending}
+                          />
+                        </td>
+                      </tr>
+                    )}
+                  </>
                 ))}
               </tbody>
             </Table>
