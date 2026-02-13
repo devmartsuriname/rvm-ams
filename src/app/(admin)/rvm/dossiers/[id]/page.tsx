@@ -1,17 +1,28 @@
+import { useState } from 'react'
 import Footer from '@/components/layout/Footer'
 import PageTitle from '@/components/PageTitle'
-import { Card, CardBody, CardHeader, Row, Col } from 'react-bootstrap'
+import { Card, CardBody, CardHeader, Row, Col, Button } from 'react-bootstrap'
 import { Link, useParams } from 'react-router-dom'
-import { useDossier } from '@/hooks/useDossiers'
+import { useDossier, useUpdateDossier } from '@/hooks/useDossiers'
 import { useTasksByDossier } from '@/hooks/useTasks'
+import { useUserRoles } from '@/hooks/useUserRoles'
 import { DossierStatusBadge, UrgencyBadge, ServiceTypeBadge, TaskStatusBadge } from '@/components/rvm/StatusBadges'
 import { LoadingState, ErrorState } from '@/components/rvm/StateComponents'
 import DossierStatusActions from '@/components/rvm/DossierStatusActions'
+import EditDossierForm from '@/components/rvm/EditDossierForm'
+import { getErrorMessage } from '@/utils/rls-error'
+import { toast } from 'react-toastify'
+import type { Enums } from '@/integrations/supabase/types'
+
+const LOCKED_STATUSES: string[] = ['decided', 'archived', 'cancelled']
 
 const DossierDetailPage = () => {
   const { id } = useParams<{ id: string }>()
   const { data: dossier, isLoading, error, refetch } = useDossier(id)
   const { data: tasks } = useTasksByDossier(id)
+  const { canEditDossier } = useUserRoles()
+  const updateDossier = useUpdateDossier()
+  const [editMode, setEditMode] = useState(false)
 
   const formatDate = (dateString: string | null | undefined) => {
     if (!dateString) return '-'
@@ -20,6 +31,41 @@ const DossierDetailPage = () => {
       month: 'long',
       day: 'numeric',
     })
+  }
+
+  const isEditDisabled = dossier?.status ? LOCKED_STATUSES.includes(dossier.status) : false
+  const showEditButton = canEditDossier && !isEditDisabled && !editMode
+
+  const handleSave = async (formData: {
+    title: string
+    service_type: Enums<'service_type'>
+    sender_ministry: string
+    urgency: Enums<'urgency_level'>
+    confidentiality_level: Enums<'confidentiality_level'>
+    summary: string
+    proposal_subtype: string
+  }) => {
+    if (!dossier) return
+    try {
+      await updateDossier.mutateAsync({
+        id: dossier.id,
+        data: {
+          title: formData.title,
+          service_type: formData.service_type,
+          sender_ministry: formData.sender_ministry,
+          urgency: formData.urgency,
+          confidentiality_level: formData.confidentiality_level,
+          summary: formData.summary || null,
+          proposal_subtype: formData.service_type === 'proposal' && formData.proposal_subtype
+            ? formData.proposal_subtype as Enums<'proposal_subtype'> : null,
+        },
+      })
+      toast.success('Dossier updated successfully')
+      await refetch()
+      setEditMode(false)
+    } catch (err) {
+      toast.error(getErrorMessage(err))
+    }
   }
 
   if (isLoading) {
@@ -61,61 +107,79 @@ const DossierDetailPage = () => {
           <Card className="mb-3">
             <CardHeader className="d-flex justify-content-between align-items-center">
               <h5 className="card-title mb-0">Dossier Information</h5>
-              <DossierStatusBadge status={dossier.status} />
+              <div className="d-flex align-items-center gap-2">
+                <DossierStatusBadge status={dossier.status} />
+                {showEditButton && (
+                  <Button variant="outline-primary" size="sm" onClick={() => setEditMode(true)}>
+                    Edit
+                  </Button>
+                )}
+              </div>
             </CardHeader>
             <CardBody>
-              <Row className="mb-3">
-                <Col md={6}>
-                  <label className="text-muted small">Dossier Number</label>
-                  <p className="mb-0 fw-medium">{dossier.dossier_number}</p>
-                </Col>
-                <Col md={6}>
-                  <label className="text-muted small">Type</label>
-                  <p className="mb-0"><ServiceTypeBadge type={dossier.service_type} /></p>
-                </Col>
-              </Row>
-              <Row className="mb-3">
-                <Col md={12}>
-                  <label className="text-muted small">Title</label>
-                  <p className="mb-0 fw-medium">{dossier.title}</p>
-                </Col>
-              </Row>
-              <Row className="mb-3">
-                <Col md={6}>
-                  <label className="text-muted small">Sender Ministry</label>
-                  <p className="mb-0">{dossier.sender_ministry}</p>
-                </Col>
-                <Col md={6}>
-                  <label className="text-muted small">Urgency</label>
-                  <p className="mb-0"><UrgencyBadge urgency={dossier.urgency} /></p>
-                </Col>
-              </Row>
-              {dossier.service_type === 'proposal' && dossier.proposal_subtype && (
-                <Row className="mb-3">
-                  <Col md={6}>
-                    <label className="text-muted small">Proposal Subtype</label>
-                    <p className="mb-0">{dossier.proposal_subtype}</p>
-                  </Col>
-                </Row>
+              {editMode ? (
+                <EditDossierForm
+                  dossier={dossier}
+                  onSave={handleSave}
+                  onCancel={() => setEditMode(false)}
+                  isLoading={updateDossier.isPending}
+                />
+              ) : (
+                <>
+                  <Row className="mb-3">
+                    <Col md={6}>
+                      <label className="text-muted small">Dossier Number</label>
+                      <p className="mb-0 fw-medium">{dossier.dossier_number}</p>
+                    </Col>
+                    <Col md={6}>
+                      <label className="text-muted small">Type</label>
+                      <p className="mb-0"><ServiceTypeBadge type={dossier.service_type} /></p>
+                    </Col>
+                  </Row>
+                  <Row className="mb-3">
+                    <Col md={12}>
+                      <label className="text-muted small">Title</label>
+                      <p className="mb-0 fw-medium">{dossier.title}</p>
+                    </Col>
+                  </Row>
+                  <Row className="mb-3">
+                    <Col md={6}>
+                      <label className="text-muted small">Sender Ministry</label>
+                      <p className="mb-0">{dossier.sender_ministry}</p>
+                    </Col>
+                    <Col md={6}>
+                      <label className="text-muted small">Urgency</label>
+                      <p className="mb-0"><UrgencyBadge urgency={dossier.urgency} /></p>
+                    </Col>
+                  </Row>
+                  {dossier.service_type === 'proposal' && dossier.proposal_subtype && (
+                    <Row className="mb-3">
+                      <Col md={6}>
+                        <label className="text-muted small">Proposal Subtype</label>
+                        <p className="mb-0">{dossier.proposal_subtype}</p>
+                      </Col>
+                    </Row>
+                  )}
+                  {dossier.summary && (
+                    <Row className="mb-3">
+                      <Col md={12}>
+                        <label className="text-muted small">Summary</label>
+                        <p className="mb-0">{dossier.summary}</p>
+                      </Col>
+                    </Row>
+                  )}
+                  <Row>
+                    <Col md={6}>
+                      <label className="text-muted small">Created</label>
+                      <p className="mb-0">{formatDate(dossier.created_at)}</p>
+                    </Col>
+                    <Col md={6}>
+                      <label className="text-muted small">Last Updated</label>
+                      <p className="mb-0">{formatDate(dossier.updated_at)}</p>
+                    </Col>
+                  </Row>
+                </>
               )}
-              {dossier.summary && (
-                <Row className="mb-3">
-                  <Col md={12}>
-                    <label className="text-muted small">Summary</label>
-                    <p className="mb-0">{dossier.summary}</p>
-                  </Col>
-                </Row>
-              )}
-              <Row>
-                <Col md={6}>
-                  <label className="text-muted small">Created</label>
-                  <p className="mb-0">{formatDate(dossier.created_at)}</p>
-                </Col>
-                <Col md={6}>
-                  <label className="text-muted small">Last Updated</label>
-                  <p className="mb-0">{formatDate(dossier.updated_at)}</p>
-                </Col>
-              </Row>
             </CardBody>
           </Card>
 
