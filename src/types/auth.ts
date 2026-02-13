@@ -9,5 +9,6 @@ export type UserType = {
   full_name: string    // app_user.full_name
   role: string         // Primary role (Darkone compat)
   roles: string[]      // All assigned role codes from user_role
+  is_super_admin?: boolean // Super admin bootstrap status (from RPC)
   token?: string       // Supabase access_token (for compat)
 }

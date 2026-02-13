@@ -59,6 +59,17 @@ const TaskListPage = () => {
     <>
       <PageTitle subName="RVM Core" title="Tasks" />
       
+      {/* Create Button — Always Visible to Authorized Users */}
+      {canCreateTask && (
+        <Card className="mb-3">
+          <CardBody>
+            <Button variant="primary" onClick={() => setShowCreate(true)}>
+              + New Task
+            </Button>
+          </CardBody>
+        </Card>
+      )}
+      
       {/* Tabs */}
       <Card className="mb-3">
         <CardBody className="pb-0">
@@ -137,15 +148,10 @@ const TaskListPage = () => {
           title="No Tasks Found" 
           description="No tasks match your current filters."
         />
-      ) : (
+       ) : (
         <Card>
           <CardHeader className="d-flex justify-content-between align-items-center">
             <h5 className="card-title mb-0">Tasks ({tasks.length})</h5>
-            {canCreateTask && (
-              <Button variant="primary" size="sm" onClick={() => setShowCreate(true)}>
-                + New Task
-              </Button>
-            )}
           </CardHeader>
           <CardBody className="p-0">
             <Table responsive hover className="mb-0">
