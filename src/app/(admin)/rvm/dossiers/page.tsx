@@ -7,6 +7,8 @@ import { DossierStatusBadge, UrgencyBadge, ServiceTypeBadge } from '@/components
 import { EmptyState, LoadingState, ErrorState } from '@/components/rvm/StateComponents'
 import { useState } from 'react'
 import type { Enums } from '@/integrations/supabase/types'
+import { useUserRoles } from '@/hooks/useUserRoles'
+import CreateDossierModal from '@/components/rvm/CreateDossierModal'
 
 type DossierStatus = Enums<'dossier_status'>
 type ServiceType = Enums<'service_type'>
@@ -15,6 +17,8 @@ const DossierListPage = () => {
   const [statusFilter, setStatusFilter] = useState<DossierStatus | ''>('')
   const [typeFilter, setTypeFilter] = useState<ServiceType | ''>('')
   const [searchTerm, setSearchTerm] = useState('')
+  const [showCreate, setShowCreate] = useState(false)
+  const { canCreateDossier } = useUserRoles()
 
   const { data: dossiers, isLoading, error, refetch } = useDossiers({
     status: statusFilter || undefined,
@@ -102,8 +106,13 @@ const DossierListPage = () => {
         />
       ) : (
         <Card>
-          <CardHeader>
+          <CardHeader className="d-flex justify-content-between align-items-center">
             <h5 className="card-title mb-0">Dossiers ({dossiers.length})</h5>
+            {canCreateDossier && (
+              <Button variant="primary" size="sm" onClick={() => setShowCreate(true)}>
+                + New Dossier
+              </Button>
+            )}
           </CardHeader>
           <CardBody className="p-0">
             <Table responsive hover className="mb-0">
@@ -145,6 +154,10 @@ const DossierListPage = () => {
             </Table>
           </CardBody>
         </Card>
+      )}
+
+      {canCreateDossier && (
+        <CreateDossierModal show={showCreate} onHide={() => setShowCreate(false)} />
       )}
 
       <Footer />

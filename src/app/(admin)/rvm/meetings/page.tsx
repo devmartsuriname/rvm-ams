@@ -1,18 +1,21 @@
 import Footer from '@/components/layout/Footer'
 import PageTitle from '@/components/PageTitle'
-import { Card, CardBody, CardHeader, Table, Form, Row, Col, Button } from 'react-bootstrap'
+import { Card, CardBody, CardHeader, Table, Form, Row, Col, Button, Badge } from 'react-bootstrap'
 import { Link } from 'react-router-dom'
 import { useMeetings } from '@/hooks/useMeetings'
 import { MeetingStatusBadge } from '@/components/rvm/StatusBadges'
 import { EmptyState, LoadingState, ErrorState } from '@/components/rvm/StateComponents'
 import { useState } from 'react'
 import type { Enums } from '@/integrations/supabase/types'
-import { Badge } from 'react-bootstrap'
+import { useUserRoles } from '@/hooks/useUserRoles'
+import CreateMeetingModal from '@/components/rvm/CreateMeetingModal'
 
 type MeetingStatus = Enums<'meeting_status'>
 
 const MeetingListPage = () => {
   const [statusFilter, setStatusFilter] = useState<MeetingStatus | ''>('')
+  const [showCreate, setShowCreate] = useState(false)
+  const { canCreateMeeting } = useUserRoles()
 
   const { data: meetings, isLoading, error, refetch } = useMeetings({
     status: statusFilter || undefined,
@@ -82,8 +85,13 @@ const MeetingListPage = () => {
         />
       ) : (
         <Card>
-          <CardHeader>
+          <CardHeader className="d-flex justify-content-between align-items-center">
             <h5 className="card-title mb-0">Meetings ({meetings.length})</h5>
+            {canCreateMeeting && (
+              <Button variant="primary" size="sm" onClick={() => setShowCreate(true)}>
+                + New Meeting
+              </Button>
+            )}
           </CardHeader>
           <CardBody className="p-0">
             <Table responsive hover className="mb-0">
@@ -125,6 +133,10 @@ const MeetingListPage = () => {
             </Table>
           </CardBody>
         </Card>
+      )}
+
+      {canCreateMeeting && (
+        <CreateMeetingModal show={showCreate} onHide={() => setShowCreate(false)} />
       )}
 
       <Footer />
