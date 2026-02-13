@@ -1,17 +1,26 @@
+import { useState } from 'react'
 import Footer from '@/components/layout/Footer'
 import PageTitle from '@/components/PageTitle'
-import { Card, CardBody, CardHeader, Row, Col, Table, Badge } from 'react-bootstrap'
+import { Card, CardBody, CardHeader, Row, Col, Table, Badge, Button } from 'react-bootstrap'
 import { Link, useParams } from 'react-router-dom'
-import { useMeeting } from '@/hooks/useMeetings'
+import { useMeeting, useUpdateMeeting } from '@/hooks/useMeetings'
 import { useDecisionsByMeeting } from '@/hooks/useDecisions'
+import { useUserRoles } from '@/hooks/useUserRoles'
 import { MeetingStatusBadge, UrgencyBadge, DecisionStatusBadge } from '@/components/rvm/StatusBadges'
 import { LoadingState, ErrorState } from '@/components/rvm/StateComponents'
 import MeetingStatusActions from '@/components/rvm/MeetingStatusActions'
+import EditMeetingForm from '@/components/rvm/EditMeetingForm'
+import { getErrorMessage } from '@/utils/rls-error'
+import { toast } from 'react-toastify'
+import type { Enums } from '@/integrations/supabase/types'
 
 const MeetingDetailPage = () => {
   const { id } = useParams<{ id: string }>()
   const { data: meeting, isLoading, error, refetch } = useMeeting(id)
   const { data: decisions } = useDecisionsByMeeting(id)
+  const { canEditMeeting } = useUserRoles()
+  const updateMeeting = useUpdateMeeting()
+  const [editMode, setEditMode] = useState(false)
 
   const formatDate = (dateString: string | null | undefined) => {
     if (!dateString) return '-'
@@ -39,6 +48,32 @@ const MeetingDetailPage = () => {
       case 'withdrawn': return <Badge bg="secondary">Withdrawn</Badge>
       case 'moved': return <Badge bg="info">Moved</Badge>
       default: return null
+    }
+  }
+
+  const isEditDisabled = meeting?.status === 'closed'
+  const showEditButton = canEditMeeting && !isEditDisabled && !editMode
+
+  const handleSave = async (formData: {
+    meeting_date: string
+    meeting_type: Enums<'meeting_type'>
+    location: string
+  }) => {
+    if (!meeting) return
+    try {
+      await updateMeeting.mutateAsync({
+        id: meeting.id,
+        data: {
+          meeting_date: formData.meeting_date,
+          meeting_type: formData.meeting_type,
+          location: formData.location || null,
+        },
+      })
+      toast.success('Meeting updated successfully')
+      await refetch()
+      setEditMode(false)
+    } catch (err) {
+      toast.error(getErrorMessage(err))
     }
   }
 
@@ -83,29 +118,45 @@ const MeetingDetailPage = () => {
           <Card className="mb-3">
             <CardHeader className="d-flex justify-content-between align-items-center">
               <h5 className="card-title mb-0">Meeting Info</h5>
-              <MeetingStatusBadge status={meeting.status} />
+              <div className="d-flex align-items-center gap-2">
+                <MeetingStatusBadge status={meeting.status} />
+                {showEditButton && (
+                  <Button variant="outline-primary" size="sm" onClick={() => setEditMode(true)}>
+                    Edit
+                  </Button>
+                )}
+              </div>
             </CardHeader>
             <CardBody>
-              <ul className="list-unstyled mb-0">
-                <li className="d-flex justify-content-between py-2 border-bottom">
-                  <span className="text-muted">Date</span>
-                  <span className="fw-medium">{formatDate(meeting.meeting_date)}</span>
-                </li>
-                <li className="d-flex justify-content-between py-2 border-bottom">
-                  <span className="text-muted">Type</span>
-                  <Badge bg={meeting.meeting_type === 'urgent' ? 'warning' : meeting.meeting_type === 'special' ? 'danger' : 'secondary'}>
-                    {getMeetingTypeLabel(meeting.meeting_type)}
-                  </Badge>
-                </li>
-                <li className="d-flex justify-content-between py-2 border-bottom">
-                  <span className="text-muted">Location</span>
-                  <span>{meeting.location || '-'}</span>
-                </li>
-                <li className="d-flex justify-content-between py-2">
-                  <span className="text-muted">Agenda Items</span>
-                  <Badge bg="primary">{agendaItems.length}</Badge>
-                </li>
-              </ul>
+              {editMode ? (
+                <EditMeetingForm
+                  meeting={meeting}
+                  onSave={handleSave}
+                  onCancel={() => setEditMode(false)}
+                  isLoading={updateMeeting.isPending}
+                />
+              ) : (
+                <ul className="list-unstyled mb-0">
+                  <li className="d-flex justify-content-between py-2 border-bottom">
+                    <span className="text-muted">Date</span>
+                    <span className="fw-medium">{formatDate(meeting.meeting_date)}</span>
+                  </li>
+                  <li className="d-flex justify-content-between py-2 border-bottom">
+                    <span className="text-muted">Type</span>
+                    <Badge bg={meeting.meeting_type === 'urgent' ? 'warning' : meeting.meeting_type === 'special' ? 'danger' : 'secondary'}>
+                      {getMeetingTypeLabel(meeting.meeting_type)}
+                    </Badge>
+                  </li>
+                  <li className="d-flex justify-content-between py-2 border-bottom">
+                    <span className="text-muted">Location</span>
+                    <span>{meeting.location || '-'}</span>
+                  </li>
+                  <li className="d-flex justify-content-between py-2">
+                    <span className="text-muted">Agenda Items</span>
+                    <Badge bg="primary">{agendaItems.length}</Badge>
+                  </li>
+                </ul>
+              )}
             </CardBody>
           </Card>
 
