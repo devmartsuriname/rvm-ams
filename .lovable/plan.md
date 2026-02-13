@@ -1,195 +1,123 @@
 
-# Route Hygiene — Remove Darkone Demo Routes, Keep RVM-Only
 
-## Route Inventory Table
+# Phase 7C: Security and Access Hardening
 
-### ALLOWED Routes (RVM-ONLY Allowlist)
-
-| Route | Status | Source |
-|-------|--------|--------|
-| `/` | KEEP | Redirects to `/dashboards` |
-| `/dashboards` | KEEP | RVM Dashboard |
-| `/rvm/dossiers` | KEEP | Dossier list |
-| `/rvm/dossiers/:id` | KEEP | Dossier detail |
-| `/rvm/meetings` | KEEP | Meeting list |
-| `/rvm/meetings/:id` | KEEP | Meeting detail |
-| `/rvm/tasks` | KEEP | Task list |
-| `/auth/sign-in` | KEEP | Authentication |
-| `*` (catch-all) | ADD | 404 handler with redirect |
-
-### DEMO Routes (TO REMOVE from router)
-
-| Route | Count | Action |
-|-------|-------|--------|
-| `/base-ui/*` | 21 routes | Remove from router registry |
-| `/forms/*` | 5 routes | Remove from router registry |
-| `/apex-chart` | 1 route | Remove from router registry |
-| `/maps/*` | 2 routes | Remove from router registry |
-| `/tables/*` | 2 routes | Remove from router registry |
-| `/icons/*` | 2 routes | Remove from router registry |
-| `/dark-sidenav`, `/dark-topnav`, `/small-sidenav`, `/hidden-sidenav`, `/dark-mode` | 5 routes | Remove from router registry |
-| `/pages-404-alt` | 1 route | Keep file, use for catch-all |
-
-**Total Demo Routes to Remove: 39**
+## Objective
+Close all active security scan findings before proceeding to Phase 8 (Audit Finalization).
 
 ---
 
-## Sidebar/Menu Status
+## Task 1: Harden `app_user` SELECT Policy
+**Type**: Database migration
 
-**ALREADY CLEAN** - Menu only contains RVM routes:
-- Dashboard (`/dashboards`)
-- Dossiers (`/rvm/dossiers`)
-- Meetings (`/rvm/meetings`)
-- Tasks (`/rvm/tasks`)
+Current policy allows unauthenticated access via role-check functions that may return false but don't block the query.
 
-No changes needed to `src/assets/data/menu-items.ts`.
+**Fix**: Add explicit authentication gate.
 
----
+```sql
+DROP POLICY IF EXISTS app_user_select ON public.app_user;
+CREATE POLICY app_user_select ON public.app_user
+  FOR SELECT
+  USING (
+    auth.uid() IS NOT NULL
+    AND (
+      auth_id = auth.uid()
+      OR has_any_role(ARRAY['secretary_rvm', 'deputy_secretary', 'rvm_sys_admin'])
+      OR is_super_admin()
+    )
+  );
+```
 
-## Implementation Plan
+## Task 2: Harden `super_admin_bootstrap` SELECT Policy
+**Type**: Database migration
 
-### Step 0: Create Pre-Implementation Restore Point
-**File**: `Project Restore Points/RP-P2C-routes-pre.md`
+Current policy lets any authenticated user see their own bootstrap record. This leaks admin identity.
 
-### Step 1: Clean Up Route Registry
-**File**: `src/routes/index.tsx`
+**Fix**: Restrict to `rvm_sys_admin` only (self-lookup unnecessary since the app never queries this table from the frontend).
 
-Changes:
-1. Remove lazy imports for demo components (base-ui, forms, charts, maps, tables, icons, layouts)
-2. Remove route array definitions: `baseUIRoutes`, `formsRoutes`, `chartsMapsRoutes`, `tableRoutes`, `iconRoutes`, `layoutsRoutes`
-3. Update `appRoutes` export to include ONLY:
-   - `initialRoutes` (root redirect)
-   - `generalRoutes` (dashboards)
-   - `rvmRoutes` (dossiers, meetings, tasks)
-4. Keep `ErrorAlt` import for 404 page
+```sql
+DROP POLICY IF EXISTS super_admin_select ON public.super_admin_bootstrap;
+CREATE POLICY super_admin_select ON public.super_admin_bootstrap
+  FOR SELECT
+  USING (
+    has_role('rvm_sys_admin')
+    OR is_super_admin()
+  );
+```
 
-### Step 2: Add Catch-All Route
-**File**: `src/routes/router.tsx`
+## Task 3: Harden `app_role` SELECT Policy
+**Type**: Database migration
 
-Add a catch-all route (`*`) that:
-- If authenticated → Navigate to `/dashboards`
-- If not authenticated → Navigate to `/auth/sign-in?redirectTo=<original-path>`
+Current policy is `USING (true)` which exposes role definitions to unauthenticated users.
 
-### Step 3: Keep Source Files (DO NOT DELETE)
-The demo component files in `src/app/(admin)/base-ui/`, `src/app/(admin)/forms/`, etc. will be KEPT.
+**Fix**: Require authentication.
 
-Rationale: These are Darkone reference components needed for 1:1 parity. They are just unregistered from the router, not deleted.
+```sql
+DROP POLICY IF EXISTS app_role_select ON public.app_role;
+CREATE POLICY app_role_select ON public.app_role
+  FOR SELECT
+  USING (auth.uid() IS NOT NULL);
+```
 
-### Step 4: Create Post-Implementation Restore Point
-**File**: `Project Restore Points/RP-P2C-routes-post.md`
+## Task 4: Enable Leaked Password Protection
+**Type**: Manual action by project owner
+
+This is a Supabase Dashboard setting, not a code change.
+
+**Steps**:
+1. Go to Supabase Dashboard > Authentication > Settings
+2. Enable "Leaked Password Protection" (HaveIBeenPwned integration)
+3. Save
+
+This task will be marked as MANUAL in the deliverable.
+
+## Task 5: Audit Event Policy — Defer to Phase 8
+**Type**: No change now
+
+The current audit_event policy restricts access to 3 privileged roles. Entity-level row filtering is a Phase 8 concern (audit trail implementation). Mark as DEFERRED.
+
+## Task 6: Formalize Documentation Location
+**Type**: File creation
+
+Declare `Project Docs/AMS-RVM/` as the official source of truth. Create a small `docs/README.md` that redirects readers there, so future contributors don't create a parallel docs tree.
+
+## Task 7: Create Restore Points
+**Type**: File creation
+
+- Pre: `Project Restore Points/RP-P7C-security-pre.md`
+- Post: `Project Restore Points/RP-P7C-security-post.md`
 
 ---
 
 ## Files Changed Summary
 
-| File | Action | Change |
-|------|--------|--------|
-| `src/routes/index.tsx` | MODIFY | Remove 39 demo routes from appRoutes |
-| `src/routes/router.tsx` | MODIFY | Add catch-all route handler |
-| `src/assets/data/menu-items.ts` | NO CHANGE | Already RVM-only |
-| `Project Restore Points/RP-P2C-routes-pre.md` | CREATE | Pre-implementation snapshot |
-| `Project Restore Points/RP-P2C-routes-post.md` | CREATE | Post-implementation snapshot |
-
----
-
-## Technical Details
-
-### Updated `src/routes/index.tsx` Structure
-
-```text
-KEEP:
-- Dashboards lazy import
-- RVM Core Routes lazy imports (DossierList, DossierDetail, etc.)
-- AuthSignIn lazy import
-- ErrorAlt lazy import (for 404)
-- initialRoutes (root redirect)
-- generalRoutes (dashboards)
-- rvmRoutes
-- authRoutes
-
-REMOVE:
-- All base-ui lazy imports (21)
-- All forms lazy imports (5)
-- Apex, GoogleMaps, VectorMaps imports
-- BasicTable, GridjsTable imports
-- BoxIcons, SolarIcons imports
-- Layout demo imports (5)
-- baseUIRoutes array
-- formsRoutes array
-- chartsMapsRoutes array (except ErrorAlt)
-- tableRoutes array
-- iconRoutes array
-- layoutsRoutes array
-```
-
-### Catch-All Route Logic
-
-```typescript
-// In router.tsx - add after protected routes
-<Route
-  path="*"
-  element={
-    isAuthenticated ? (
-      <Navigate to="/dashboards" replace />
-    ) : (
-      <Navigate
-        to={{
-          pathname: '/auth/sign-in',
-          search: `redirectTo=${window.location.pathname}`,
-        }}
-        replace
-      />
-    )
-  }
-/>
-```
-
----
-
-## Verification Matrix
-
-After implementation, test these scenarios:
-
-| # | URL | Expected Behavior |
-|---|-----|-------------------|
-| 1 | `/auth/sign-in` (direct) | Shows sign-in page |
-| 2 | `/auth/sign-in?redirectTo=/dashboards` | Login redirects to /dashboards |
-| 3 | `/dashboards` (direct, authenticated) | Shows dashboard |
-| 4 | `/base-ui/buttons` (demo route) | Redirects to /dashboards (if auth) or /auth/sign-in (if not) |
-| 5 | `/forms/basic` (demo route) | Same redirect behavior |
-| 6 | `/nonexistent-route` | Same redirect behavior |
-| 7 | Refresh on `/dashboards` | Session persists |
-
-Test on both:
-- `rvmams.lovable.app`
-- `preview--rvmams.lovable.app`
+| File/Resource | Action | Change |
+|---|---|---|
+| `app_user` RLS policy | MIGRATION | Add `auth.uid() IS NOT NULL` gate |
+| `super_admin_bootstrap` RLS policy | MIGRATION | Remove self-lookup, admin-only |
+| `app_role` RLS policy | MIGRATION | Replace `true` with `auth.uid() IS NOT NULL` |
+| Leaked Password Protection | MANUAL | Enable in Supabase Dashboard |
+| `audit_event` policy | DEFERRED | Phase 8 scope |
+| `docs/README.md` | CREATE | Redirect to `Project Docs/AMS-RVM/` |
+| Restore points | CREATE | Pre/post snapshots |
 
 ---
 
 ## Governance Compliance
 
 | Rule | Status |
-|------|--------|
-| Darkone 1:1 parity | Compliant - Source files kept, just unregistered |
-| No UI styling changes | Compliant |
-| No new features | Compliant |
-| No database/RLS changes | Compliant |
-| No fake backend files | Compliant |
-| Restore points created | Will create pre/post |
+|---|---|
+| No UI changes | Compliant |
+| No new features | Compliant - security hardening only |
+| No schema changes (columns/tables) | Compliant - RLS policies only |
+| Darkone 1:1 parity | Compliant |
+| Restore points | Will create pre/post |
 
 ---
 
-## Documentation Updates
+## Impact Assessment
 
-No `/docs/backend.md` or `/docs/architecture.md` files exist. If needed, can document changes in:
-- `Project Docs/AMS-RVM/` directory (existing documentation location)
+- **Auth flow**: The `app_user` policy change requires `auth.uid() IS NOT NULL`. Since the auth context already has a valid session before querying `app_user`, this adds zero friction to the login flow.
+- **Helper functions**: `get_current_user_id()`, `has_role()`, `has_any_role()` all use `auth.uid()` internally and are `SECURITY DEFINER`. They will continue to work correctly because they are called within an authenticated context.
+- **Bootstrap table**: Removing self-lookup has no frontend impact — no component queries `super_admin_bootstrap`.
 
----
-
-## Expected Deliverable
-
-After implementation:
-1. Only 8 routes registered (/, /dashboards, /rvm/*, /auth/sign-in, *)
-2. All demo routes return 404/redirect behavior
-3. Menu unchanged (already RVM-only)
-4. Verification matrix passes on live + preview
