@@ -67,6 +67,10 @@ async function mapSupabaseUserToAppUser(
     const firstName = nameParts[0] ?? ''
     const lastName = nameParts.slice(1).join(' ') ?? ''
 
+    // Check super admin status via RPC (SECURITY DEFINER function)
+    const { data: isSuperAdmin } = await supabase
+      .rpc('is_super_admin')
+    
     return {
       id: appUser.id,
       auth_id: authUser.id,
@@ -77,6 +81,7 @@ async function mapSupabaseUserToAppUser(
       lastName,
       role: primaryRole,
       roles,
+      is_super_admin: isSuperAdmin ?? false,
       token: accessToken,
     }
   } catch (error) {

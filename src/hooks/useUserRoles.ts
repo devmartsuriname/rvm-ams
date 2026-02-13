@@ -7,6 +7,7 @@ import { useAuthContext } from '@/context/useAuthContext'
 export function useUserRoles() {
   const { user } = useAuthContext()
   const roles = user?.roles ?? []
+  const isSuperAdmin = user?.is_super_admin ?? false
 
   const hasRole = (role: string) => roles.includes(role)
   const hasAnyRole = (required: string[]) => required.some(r => roles.includes(r))
@@ -16,22 +17,22 @@ export function useUserRoles() {
     userId: user?.id,
 
     // Dossier permissions
-    canCreateDossier: hasRole('admin_intake'),
-    canEditDossier: hasAnyRole(['secretary_rvm', 'admin_dossier']),
-    canTransitionDossier: hasAnyRole(['secretary_rvm', 'admin_dossier']),
+    canCreateDossier: isSuperAdmin || hasRole('admin_intake'),
+    canEditDossier: isSuperAdmin || hasAnyRole(['secretary_rvm', 'admin_dossier']),
+    canTransitionDossier: isSuperAdmin || hasAnyRole(['secretary_rvm', 'admin_dossier']),
 
     // Meeting permissions
-    canCreateMeeting: hasAnyRole(['secretary_rvm', 'admin_agenda']),
-    canEditMeeting: hasAnyRole(['secretary_rvm', 'admin_agenda']),
-    canTransitionMeeting: hasAnyRole(['secretary_rvm', 'admin_agenda']),
+    canCreateMeeting: isSuperAdmin || hasAnyRole(['secretary_rvm', 'admin_agenda']),
+    canEditMeeting: isSuperAdmin || hasAnyRole(['secretary_rvm', 'admin_agenda']),
+    canTransitionMeeting: isSuperAdmin || hasAnyRole(['secretary_rvm', 'admin_agenda']),
 
     // Task permissions
-    canCreateTask: hasAnyRole(['secretary_rvm', 'deputy_secretary']),
-    canEditTask: hasAnyRole(['secretary_rvm', 'deputy_secretary']),
-    canTransitionTask: hasAnyRole(['secretary_rvm', 'deputy_secretary']),
+    canCreateTask: isSuperAdmin || hasAnyRole(['secretary_rvm', 'deputy_secretary']),
+    canEditTask: isSuperAdmin || hasAnyRole(['secretary_rvm', 'deputy_secretary']),
+    canTransitionTask: isSuperAdmin || hasAnyRole(['secretary_rvm', 'deputy_secretary']),
 
     // Super admin
-    isSuperAdmin: hasRole('super_admin'),
+    isSuperAdmin,
 
     // Helpers
     hasRole,

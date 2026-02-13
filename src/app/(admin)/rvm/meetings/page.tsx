@@ -44,6 +44,17 @@ const MeetingListPage = () => {
     <>
       <PageTitle subName="RVM Core" title="Meetings" />
       
+      {/* Create Button — Always Visible to Authorized Users */}
+      {canCreateMeeting && (
+        <Card className="mb-3">
+          <CardBody>
+            <Button variant="primary" onClick={() => setShowCreate(true)}>
+              + New Meeting
+            </Button>
+          </CardBody>
+        </Card>
+      )}
+      
       {/* Filters */}
       <Card className="mb-3">
         <CardBody>
@@ -87,11 +98,6 @@ const MeetingListPage = () => {
         <Card>
           <CardHeader className="d-flex justify-content-between align-items-center">
             <h5 className="card-title mb-0">Meetings ({meetings.length})</h5>
-            {canCreateMeeting && (
-              <Button variant="primary" size="sm" onClick={() => setShowCreate(true)}>
-                + New Meeting
-              </Button>
-            )}
           </CardHeader>
           <CardBody className="p-0">
             <Table responsive hover className="mb-0">
