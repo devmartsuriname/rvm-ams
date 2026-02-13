@@ -90,22 +90,11 @@ export function AuthProvider({ children }: ChildrenType) {
   const [user, setUser] = useState<UserType | undefined>(undefined)
   const [isLoading, setIsLoading] = useState(true)
   const [isAuthenticated, setIsAuthenticated] = useState(false)
-  
-  // Ref to track current isLoading state (fixes stale closure in safety timeout)
-  const isLoadingRef = useRef(isLoading)
-  
-  // Keep isLoadingRef in sync with isLoading state
-  useEffect(() => {
-    isLoadingRef.current = isLoading
-  }, [isLoading])
 
   /**
-   * Handle session changes from Supabase auth
-   * Idempotent — safe to call multiple times for the same session.
+   * Apply a resolved session to state. Idempotent.
    */
-  const handleAuthChange = useCallback(async (session: Session | null) => {
-    // No guard — processing the same session twice is idempotent;
-    // dropping SIGNED_IN events causes redirect failure (see RP-P2E).
+  const applySession = useCallback(async (session: Session | null) => {
     try {
       if (session?.user && session.access_token) {
         const appUser = await mapSupabaseUserToAppUser(session.user, session.access_token)
@@ -114,7 +103,6 @@ export function AuthProvider({ children }: ChildrenType) {
           setIsAuthenticated(true)
           console.info('[Auth] User authenticated successfully:', appUser.email)
         } else {
-          // Auth user exists but no app_user mapping
           setUser(undefined)
           setIsAuthenticated(false)
           console.warn('[Auth] User mapping failed - staying unauthenticated')
@@ -124,8 +112,10 @@ export function AuthProvider({ children }: ChildrenType) {
         setIsAuthenticated(false)
         console.info('[Auth] No active session detected')
       }
-    } finally {
-      setIsLoading(false)
+    } catch (error) {
+      console.error('[Auth] Error in applySession:', error)
+      setUser(undefined)
+      setIsAuthenticated(false)
     }
   }, [])
 
@@ -133,30 +123,44 @@ export function AuthProvider({ children }: ChildrenType) {
    * Initialize auth state on mount
    */
   useEffect(() => {
-    // Set up auth state listener — INITIAL_SESSION fires immediately,
-    // covering the initial session check (no separate getSession() needed).
+    let isMounted = true
+
+    // Listener for ONGOING auth changes (sign-in, sign-out, token refresh).
+    // MUST NOT await Supabase DB calls inside the callback — causes deadlock.
+    // Use setTimeout(0) to break out of the internal auth lock.
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
+      (event, session) => {
         console.info('[Auth] State change:', event)
-        await handleAuthChange(session)
+        if (!isMounted) return
+        setTimeout(() => {
+          if (!isMounted) return
+          applySession(session).then(() => {
+            if (isMounted) setIsLoading(false)
+          })
+        }, 0)
       }
     )
 
-    // Safety timeout: ensure isLoading is set to false after 10 seconds
-    // Uses ref to avoid stale closure capturing outdated isLoading value
-    const safetyTimeout = setTimeout(() => {
-      if (isLoadingRef.current) {
-        console.warn('[Auth] Safety timeout triggered - forcing loading complete')
-        setIsLoading(false)
+    // INITIAL load — getSession() is safe to await outside the callback.
+    // This controls isLoading for the first render.
+    const initializeAuth = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession()
+        if (!isMounted) return
+        await applySession(session)
+      } finally {
+        if (isMounted) setIsLoading(false)
       }
-    }, 10000)
+    }
+
+    initializeAuth()
 
     return () => {
+      isMounted = false
       subscription.unsubscribe()
-      clearTimeout(safetyTimeout)
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [handleAuthChange]) // Remove isLoading to prevent re-initialization loops
+  }, [applySession])
 
   /**
    * Save session (called after successful sign-in)
