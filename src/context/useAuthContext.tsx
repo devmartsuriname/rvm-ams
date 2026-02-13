@@ -93,7 +93,6 @@ export function AuthProvider({ children }: ChildrenType) {
   
   // Prevent concurrent auth processing (race condition fix)
   const isProcessingRef = useRef(false)
-  const hasInitializedRef = useRef(false)
   // Ref to track current isLoading state (fixes stale closure in safety timeout)
   const isLoadingRef = useRef(isLoading)
   
@@ -143,9 +142,8 @@ export function AuthProvider({ children }: ChildrenType) {
    * Initialize auth state on mount
    */
   useEffect(() => {
-    // Prevent double initialization in StrictMode
-    if (hasInitializedRef.current) return
-    hasInitializedRef.current = true
+    // Reset processing flag on each mount (fixes StrictMode stale ref)
+    isProcessingRef.current = false
 
     // Set up auth state listener BEFORE checking initial session
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
