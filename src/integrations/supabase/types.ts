@@ -684,6 +684,14 @@ export type Database = {
     }
     Functions: {
       get_current_user_id: { Args: never; Returns: string }
+      get_user_directory: {
+        Args: never
+        Returns: {
+          email: string
+          full_name: string
+          id: string
+        }[]
+      }
       get_user_roles: { Args: never; Returns: string[] }
       has_any_role: { Args: { required_roles: string[] }; Returns: boolean }
       has_role: { Args: { required_role: string }; Returns: boolean }
