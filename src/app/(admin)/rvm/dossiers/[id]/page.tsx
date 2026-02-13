@@ -1,11 +1,12 @@
 import Footer from '@/components/layout/Footer'
 import PageTitle from '@/components/PageTitle'
-import { Card, CardBody, CardHeader, Row, Col, Button } from 'react-bootstrap'
+import { Card, CardBody, CardHeader, Row, Col } from 'react-bootstrap'
 import { Link, useParams } from 'react-router-dom'
 import { useDossier } from '@/hooks/useDossiers'
 import { useTasksByDossier } from '@/hooks/useTasks'
 import { DossierStatusBadge, UrgencyBadge, ServiceTypeBadge, TaskStatusBadge } from '@/components/rvm/StatusBadges'
-import { LoadingState, ErrorState, EmptyState } from '@/components/rvm/StateComponents'
+import { LoadingState, ErrorState } from '@/components/rvm/StateComponents'
+import DossierStatusActions from '@/components/rvm/DossierStatusActions'
 
 const DossierDetailPage = () => {
   const { id } = useParams<{ id: string }>()
@@ -46,10 +47,11 @@ const DossierDetailPage = () => {
       <PageTitle subName="RVM Core" title={dossier.dossier_number} />
 
       <Row className="mb-3">
-        <Col>
+        <Col className="d-flex justify-content-between align-items-center">
           <Link to="/rvm/dossiers" className="btn btn-outline-secondary btn-sm">
             ← Back to Dossiers
           </Link>
+          <DossierStatusActions dossierId={dossier.id} currentStatus={dossier.status} />
         </Col>
       </Row>
 

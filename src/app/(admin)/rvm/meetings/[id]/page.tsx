@@ -4,8 +4,9 @@ import { Card, CardBody, CardHeader, Row, Col, Table, Badge } from 'react-bootst
 import { Link, useParams } from 'react-router-dom'
 import { useMeeting } from '@/hooks/useMeetings'
 import { useDecisionsByMeeting } from '@/hooks/useDecisions'
-import { MeetingStatusBadge, DossierStatusBadge, UrgencyBadge, DecisionStatusBadge } from '@/components/rvm/StatusBadges'
-import { LoadingState, ErrorState, EmptyState } from '@/components/rvm/StateComponents'
+import { MeetingStatusBadge, UrgencyBadge, DecisionStatusBadge } from '@/components/rvm/StatusBadges'
+import { LoadingState, ErrorState } from '@/components/rvm/StateComponents'
+import MeetingStatusActions from '@/components/rvm/MeetingStatusActions'
 
 const MeetingDetailPage = () => {
   const { id } = useParams<{ id: string }>()
@@ -68,10 +69,11 @@ const MeetingDetailPage = () => {
       <PageTitle subName="RVM Core" title={`Meeting - ${formatDate(meeting.meeting_date)}`} />
 
       <Row className="mb-3">
-        <Col>
+        <Col className="d-flex justify-content-between align-items-center">
           <Link to="/rvm/meetings" className="btn btn-outline-secondary btn-sm">
             ← Back to Meetings
           </Link>
+          <MeetingStatusActions meetingId={meeting.id} currentStatus={meeting.status} />
         </Col>
       </Row>
 

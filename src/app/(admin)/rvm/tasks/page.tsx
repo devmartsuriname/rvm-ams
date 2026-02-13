@@ -7,12 +7,17 @@ import { TaskStatusBadge, PriorityBadge } from '@/components/rvm/StatusBadges'
 import { EmptyState, LoadingState, ErrorState } from '@/components/rvm/StateComponents'
 import { useState } from 'react'
 import type { Enums } from '@/integrations/supabase/types'
+import { useUserRoles } from '@/hooks/useUserRoles'
+import CreateTaskModal from '@/components/rvm/CreateTaskModal'
+import TaskStatusActions from '@/components/rvm/TaskStatusActions'
 
 type TaskStatus = Enums<'task_status'>
 
 const TaskListPage = () => {
   const [statusFilter, setStatusFilter] = useState<TaskStatus | ''>('')
   const [activeTab, setActiveTab] = useState<'all' | 'pending' | 'done'>('all')
+  const [showCreate, setShowCreate] = useState(false)
+  const { canCreateTask } = useUserRoles()
 
   const getStatusFromTab = (): TaskStatus | undefined => {
     if (activeTab === 'pending') return 'todo'
@@ -134,8 +139,13 @@ const TaskListPage = () => {
         />
       ) : (
         <Card>
-          <CardHeader>
+          <CardHeader className="d-flex justify-content-between align-items-center">
             <h5 className="card-title mb-0">Tasks ({tasks.length})</h5>
+            {canCreateTask && (
+              <Button variant="primary" size="sm" onClick={() => setShowCreate(true)}>
+                + New Task
+              </Button>
+            )}
           </CardHeader>
           <CardBody className="p-0">
             <Table responsive hover className="mb-0">
@@ -147,12 +157,13 @@ const TaskListPage = () => {
                   <th>Priority</th>
                   <th>Status</th>
                   <th>Due</th>
+                  <th>Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {tasks.map((task) => (
                   <tr key={task.id} className={isOverdue(task.due_at, task.status) ? 'table-danger' : ''}>
-                    <td className="text-truncate" style={{ maxWidth: '250px' }}>
+                    <td className="text-truncate" style={{ maxWidth: '200px' }}>
                       {task.title}
                     </td>
                     <td>
@@ -172,12 +183,23 @@ const TaskListPage = () => {
                     <td className={isOverdue(task.due_at, task.status) ? 'text-danger fw-medium' : ''}>
                       {formatDate(task.due_at)}
                     </td>
+                    <td>
+                      <TaskStatusActions
+                        taskId={task.id}
+                        currentStatus={task.status}
+                        hasAssignee={!!task.assigned_user_id}
+                      />
+                    </td>
                   </tr>
                 ))}
               </tbody>
             </Table>
           </CardBody>
         </Card>
+      )}
+
+      {canCreateTask && (
+        <CreateTaskModal show={showCreate} onHide={() => setShowCreate(false)} />
       )}
 
       <Footer />
