@@ -12,7 +12,7 @@ const VerticalNavigationBar = lazy(() => import('@/components/layout/VerticalNav
 const AdminLayout = ({ children }: ChildrenType) => {
   return (
     <div className="wrapper">
-      <Suspense fallback={<LoadingFallback />}>
+      <Suspense fallback={null}>
         <TopNavigationBar />
       </Suspense>
       <Suspense fallback={<div />}>
