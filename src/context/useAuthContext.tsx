@@ -91,8 +91,6 @@ export function AuthProvider({ children }: ChildrenType) {
   const [isLoading, setIsLoading] = useState(true)
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   
-  // Prevent concurrent auth processing (race condition fix)
-  const isProcessingRef = useRef(false)
   // Ref to track current isLoading state (fixes stale closure in safety timeout)
   const isLoadingRef = useRef(isLoading)
   
@@ -103,17 +101,11 @@ export function AuthProvider({ children }: ChildrenType) {
 
   /**
    * Handle session changes from Supabase auth
-   * Uses a processing flag to prevent race conditions
+   * Idempotent — safe to call multiple times for the same session.
    */
   const handleAuthChange = useCallback(async (session: Session | null) => {
-    // Prevent concurrent processing
-    if (isProcessingRef.current) {
-      console.info('[Auth] Skipping duplicate auth processing')
-      return
-    }
-    
-    isProcessingRef.current = true
-    
+    // No guard — processing the same session twice is idempotent;
+    // dropping SIGNED_IN events causes redirect failure (see RP-P2E).
     try {
       if (session?.user && session.access_token) {
         const appUser = await mapSupabaseUserToAppUser(session.user, session.access_token)
@@ -133,7 +125,6 @@ export function AuthProvider({ children }: ChildrenType) {
         console.info('[Auth] No active session detected')
       }
     } finally {
-      isProcessingRef.current = false
       setIsLoading(false)
     }
   }, [])
@@ -142,24 +133,14 @@ export function AuthProvider({ children }: ChildrenType) {
    * Initialize auth state on mount
    */
   useEffect(() => {
-    // Reset processing flag on each mount (fixes StrictMode stale ref)
-    isProcessingRef.current = false
-
-    // Set up auth state listener BEFORE checking initial session
+    // Set up auth state listener — INITIAL_SESSION fires immediately,
+    // covering the initial session check (no separate getSession() needed).
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         console.info('[Auth] State change:', event)
         await handleAuthChange(session)
       }
     )
-
-    // Check initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      // Only process if not already handled by onAuthStateChange
-      if (!isProcessingRef.current) {
-        handleAuthChange(session)
-      }
-    })
 
     // Safety timeout: ensure isLoading is set to false after 10 seconds
     // Uses ref to avoid stale closure capturing outdated isLoading value
