@@ -35,4 +35,10 @@ export const MENU_ITEMS: MenuItemType[] = [
     icon: 'bx:task',
     url: '/rvm/tasks',
   },
+  {
+    key: 'rvm-audit',
+    label: 'Audit Log',
+    icon: 'bx:shield-quarter',
+    url: '/rvm/audit',
+  },
 ]
