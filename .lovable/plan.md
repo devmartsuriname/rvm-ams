@@ -1,125 +1,419 @@
+Phase 8A Revised Plan — Schema-Safe Migration
+
+## Blockers Resolution Summary
 
 
-# Phase 7C Closeout Gate — Security Scan Disposition + Minimal Mitigation
+| Blocker | Issue                                                                                      | Resolution                                                                                                                                                            |
+| ------- | ------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1       | `log_audit_event()` references `OLD.status`/`NEW.status` on tables without `status` column | Use `to_jsonb(OLD)` and `to_jsonb(NEW)` generically; detect `status` key in JSONB                                                                                     |
+| 2       | Actor role lookup table unclear                                                            | Confirmed: `user_role` IS the canonical table (`user_id`, `role_code`). Use existing `get_user_roles()` helper                                                        |
+| 3       | Document version lock assumes `rvm_document.decision_id`                                   | Confirmed: `rvm_document` DOES have `decision_id` (nullable uuid). Chain: `rvm_document_version.document_id` -> `rvm_document.decision_id` -> `rvm_decision.is_final` |
+| 4       | `validate_status_transition()` uses fragile JSONB/array cast                               | Replace with a `status_transitions` lookup table + `EXISTS` validation                                                                                                |
 
-## Current Security Scan State (2 findings)
-
-| Finding | Level | Current Policy |
-|---------|-------|---------------|
-| `app_user` personal data exposed | ERROR | `auth_id = auth.uid() OR has_any_role([secretary_rvm, deputy_secretary, rvm_sys_admin]) OR is_super_admin()` |
-| `super_admin_bootstrap` minimal access control | WARN | `is_super_admin()` SELECT only; no INSERT/UPDATE/DELETE policies (implicitly blocked) |
-
-## Codebase Analysis
-
-Only ONE place queries `app_user`: the auth context (`src/context/useAuthContext.tsx`), which does a self-lookup by `auth_id`. No UI currently lists or browses all users. Task assignment UI does not exist yet (Phase 8 scope).
 
 ---
 
-## Step 0: Pre-Change Restore Point
-Create `Project Restore Points/RP-P2D-phase7c-closeout-pre.md` documenting current RLS state and scan findings.
+## Schema Proof
 
-## Step 1: Create `app_user_directory` View (Option A)
+### Tables with triggers and referenced columns
 
-**Database migration** to create a restricted directory view:
+
+| Table                  | Trigger                                 | Columns Referenced                                                                                           | Confirmed |
+| ---------------------- | --------------------------------------- | ------------------------------------------------------------------------------------------------------------ | --------- |
+| `rvm_dossier`          | `enforce_dossier_status_transition`     | `status` (dossier_status enum)                                                                               | Yes       |
+| `rvm_dossier`          | `audit_rvm_dossier`                     | `id` (uuid)                                                                                                  | Yes       |
+| `rvm_meeting`          | `enforce_meeting_status_transition`     | `status` (meeting_status enum)                                                                               | Yes       |
+| `rvm_meeting`          | `audit_rvm_meeting`                     | `id` (uuid)                                                                                                  | Yes       |
+| `rvm_task`             | `enforce_task_status_transition`        | `status` (task_status enum), `assigned_user_id` (uuid), `started_at`, `completed_at`                         | Yes       |
+| `rvm_task`             | `audit_rvm_task`                        | `id` (uuid)                                                                                                  | Yes       |
+| `rvm_agenda_item`      | `enforce_agenda_item_status_transition` | `status` (agenda_item_status enum), `meeting_id` (uuid)                                                      | Yes       |
+| `rvm_agenda_item`      | `audit_rvm_agenda_item`                 | `id` (uuid)                                                                                                  | Yes       |
+| `rvm_decision`         | `enforce_chair_approval_gate`           | `is_final` (boolean), `chair_approved_at` (timestamptz), `chair_approved_by` (uuid), `agenda_item_id` (uuid) | Yes       |
+| `rvm_decision`         | `audit_rvm_decision`                    | `id` (uuid)                                                                                                  | Yes       |
+| `rvm_item`             | `enforce_dossier_immutability_item`     | `dossier_id` (uuid)                                                                                          | Yes       |
+| `rvm_item`             | `audit_rvm_item`                        | `id` (uuid)                                                                                                  | Yes       |
+| `rvm_document`         | `enforce_dossier_immutability_document` | `dossier_id` (uuid)                                                                                          | Yes       |
+| `rvm_document`         | `audit_rvm_document`                    | `id` (uuid)                                                                                                  | Yes       |
+| `rvm_document_version` | `enforce_document_lock_on_decision`     | `document_id` (uuid) -> `rvm_document.decision_id` -> `rvm_decision.is_final`                                | Yes       |
+| `rvm_document_version` | `audit_rvm_document_version`            | `id` (uuid)                                                                                                  | Yes       |
+
+
+### Enum values confirmed
+
+
+| Enum                 | Values                                                                     |
+| -------------------- | -------------------------------------------------------------------------- |
+| `dossier_status`     | draft, registered, in_preparation, scheduled, decided, archived, cancelled |
+| `meeting_status`     | draft, published, closed                                                   |
+| `task_status`        | todo, in_progress, blocked, done, cancelled                                |
+| `agenda_item_status` | scheduled, presented, withdrawn, moved                                     |
+| `decision_status`    | pending, approved, deferred, rejected                                      |
+
+
+### Role system confirmed
+
+- Table: `user_role` with columns `user_id` (uuid), `role_code` (text), `assigned_at`
+- Existing helper: `get_user_roles()` returns `text[]` for current auth user
+- Existing helper: `get_current_user_id()` returns uuid
+
+---
+
+## Revised Migration SQL
+
+### Part 1: Status Transition Table (replaces fragile JSONB approach)
 
 ```sql
-CREATE VIEW public.app_user_directory AS
-SELECT id, full_name, email
-FROM public.app_user
-WHERE is_active = true;
+CREATE TABLE public.status_transitions (
+  entity_type TEXT NOT NULL,
+  from_status TEXT NOT NULL,
+  to_status TEXT NOT NULL,
+  PRIMARY KEY (entity_type, from_status, to_status)
+);
 
--- RLS on views not supported in Postgres; instead, 
--- use a SECURITY DEFINER function for directory lookups
-CREATE OR REPLACE FUNCTION public.get_user_directory()
-RETURNS TABLE(id uuid, full_name text, email text)
-LANGUAGE sql
-STABLE SECURITY DEFINER
+-- Dossier transitions
+INSERT INTO status_transitions VALUES
+  ('dossier','draft','registered'),
+  ('dossier','registered','in_preparation'),
+  ('dossier','registered','cancelled'),
+  ('dossier','in_preparation','scheduled'),
+  ('dossier','in_preparation','cancelled'),
+  ('dossier','scheduled','decided'),
+  ('dossier','scheduled','cancelled'),
+  ('dossier','decided','archived');
+
+-- Meeting transitions
+INSERT INTO status_transitions VALUES
+  ('meeting','draft','published'),
+  ('meeting','published','closed');
+
+-- Task transitions
+INSERT INTO status_transitions VALUES
+  ('task','todo','in_progress'),
+  ('task','todo','blocked'),
+  ('task','todo','cancelled'),
+  ('task','in_progress','done'),
+  ('task','in_progress','blocked'),
+  ('task','in_progress','cancelled'),
+  ('task','blocked','in_progress'),
+  ('task','blocked','cancelled');
+
+-- Agenda item transitions
+INSERT INTO status_transitions VALUES
+  ('agenda_item','scheduled','presented'),
+  ('agenda_item','scheduled','withdrawn'),
+  ('agenda_item','scheduled','moved'),
+  ('agenda_item','presented','withdrawn');
+
+-- RLS: read-only for authenticated, no writes
+ALTER TABLE status_transitions ENABLE ROW LEVEL SECURITY;
+CREATE POLICY status_transitions_select ON status_transitions
+  FOR SELECT USING (auth.uid() IS NOT NULL);
+```
+
+### Part 2: Transition Validation Function
+
+```sql
+CREATE OR REPLACE FUNCTION public.validate_status_transition(
+  p_entity_type TEXT, p_old_status TEXT, p_new_status TEXT
+) RETURNS BOOLEAN
+LANGUAGE sql STABLE SECURITY DEFINER
 SET search_path TO 'public'
 AS $$
-  SELECT au.id, au.full_name, au.email
-  FROM public.app_user au
-  WHERE au.is_active = true
-  AND (
-    EXISTS (
-      SELECT 1 FROM public.user_role ur
-      WHERE ur.user_id = (SELECT aui.id FROM public.app_user aui WHERE aui.auth_id = auth.uid())
-      AND ur.role_code IN ('secretary_rvm', 'deputy_secretary', 'rvm_sys_admin')
-    )
-    OR public.is_super_admin()
+  SELECT EXISTS (
+    SELECT 1 FROM public.status_transitions
+    WHERE entity_type = p_entity_type
+      AND from_status = p_old_status
+      AND to_status = p_new_status
   );
 $$;
 ```
 
-Then tighten `app_user` SELECT to self-only for non-admin roles:
+### Part 3: Workflow Enforcement Triggers
+
+Each trigger uses the validated transition table and only references columns confirmed to exist.
+
+**Dossier** -- references: `status` (dossier_status)
 
 ```sql
-DROP POLICY IF EXISTS app_user_select ON public.app_user;
-CREATE POLICY app_user_select ON public.app_user
-  FOR SELECT
-  USING (auth_id = auth.uid() OR is_super_admin());
+CREATE OR REPLACE FUNCTION enforce_dossier_status_transition()
+RETURNS TRIGGER AS $$
+BEGIN
+  IF OLD.status IS DISTINCT FROM NEW.status THEN
+    IF NOT validate_status_transition('dossier', OLD.status::TEXT, NEW.status::TEXT) THEN
+      RAISE EXCEPTION 'Invalid dossier transition: % -> %', OLD.status, NEW.status;
+    END IF;
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
 ```
 
-This means:
-- Regular users: can only read their own `app_user` record (auth context self-lookup works)
-- Admin roles needing directory: call `get_user_directory()` function (Phase 8 task assignment UI will use this)
-- Super admins: full access via both paths
+**Meeting** -- references: `status` (meeting_status)
 
-## Step 2: Disposition for `super_admin_bootstrap` (WARN)
+```sql
+CREATE OR REPLACE FUNCTION enforce_meeting_status_transition()
+RETURNS TRIGGER AS $$
+BEGIN
+  IF OLD.status IS DISTINCT FROM NEW.status THEN
+    IF NOT validate_status_transition('meeting', OLD.status::TEXT, NEW.status::TEXT) THEN
+      RAISE EXCEPTION 'Invalid meeting transition: % -> %', OLD.status, NEW.status;
+    END IF;
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+```
 
-The warning is about implicit denial (no INSERT/UPDATE/DELETE policies). Since RLS is enabled and no policies exist, these operations are already blocked for all non-service_role callers. This is **by design** -- the table is managed exclusively via direct DB access.
+**Task** -- references: `status` (task_status), `assigned_user_id`, `started_at`, `completed_at`
 
-No code change needed. Document as "By Design" with compensating controls.
+```sql
+CREATE OR REPLACE FUNCTION enforce_task_status_transition()
+RETURNS TRIGGER AS $$
+BEGIN
+  IF OLD.status IS DISTINCT FROM NEW.status THEN
+    IF NOT validate_status_transition('task', OLD.status::TEXT, NEW.status::TEXT) THEN
+      RAISE EXCEPTION 'Invalid task transition: % -> %', OLD.status, NEW.status;
+    END IF;
+    IF NEW.status = 'in_progress' THEN
+      NEW.started_at := COALESCE(NEW.started_at, now());
+    ELSIF NEW.status = 'done' THEN
+      NEW.completed_at := COALESCE(NEW.completed_at, now());
+    END IF;
+  END IF;
+  IF NEW.status = 'in_progress' AND NEW.assigned_user_id IS NULL THEN
+    RAISE EXCEPTION 'Task cannot be in_progress without assigned_user_id';
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+```
 
-## Step 3: Verify `audit_event` Immutability
+**Agenda Item** -- references: `status` (agenda_item_status), `meeting_id`
 
-Already confirmed in Round 2:
-- SELECT: `audit_readonly` + `is_super_admin()` only
-- INSERT/UPDATE/DELETE: No policies = service_role only
+```sql
+CREATE OR REPLACE FUNCTION enforce_agenda_item_status_transition()
+RETURNS TRIGGER AS $$
+DECLARE
+  v_meeting_status meeting_status;
+BEGIN
+  IF OLD.status IS DISTINCT FROM NEW.status THEN
+    SELECT status INTO v_meeting_status FROM rvm_meeting WHERE id = NEW.meeting_id;
+    IF v_meeting_status = 'closed' THEN
+      RAISE EXCEPTION 'Cannot modify agenda item in closed meeting';
+    END IF;
+    IF NOT validate_status_transition('agenda_item', OLD.status::TEXT, NEW.status::TEXT) THEN
+      RAISE EXCEPTION 'Invalid agenda item transition: % -> %', OLD.status, NEW.status;
+    END IF;
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+```
 
-Document in security scan report with evidence.
+### Part 4: Chair Approval Gate
 
-## Step 4: Create Security Scan Report
+References: `is_final`, `chair_approved_at`, `chair_approved_by`, `agenda_item_id` -- all confirmed on `rvm_decision`.
 
-Create `docs/security-scan-phase7c.md` with formal disposition for all findings:
+```sql
+CREATE OR REPLACE FUNCTION enforce_chair_approval_gate()
+RETURNS TRIGGER AS $$
+DECLARE
+  v_dossier_id uuid;
+BEGIN
+  IF NEW.is_final = true AND OLD.is_final = false THEN
+    IF NEW.chair_approved_at IS NULL OR NEW.chair_approved_by IS NULL THEN
+      RAISE EXCEPTION 'Decision cannot be finalized without chair approval';
+    END IF;
+    -- Cascade: set parent dossier to decided
+    SELECT dossier_id INTO v_dossier_id
+    FROM rvm_agenda_item WHERE id = NEW.agenda_item_id;
+    IF v_dossier_id IS NOT NULL THEN
+      UPDATE rvm_dossier SET status = 'decided', updated_at = now()
+      WHERE id = v_dossier_id;
+    END IF;
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+```
 
-| Finding | Level | Disposition | Rationale |
-|---------|-------|------------|-----------|
-| `app_user` personal data | ERROR | MITIGATED | Tightened to self-only; directory function for admin lookups |
-| `super_admin_bootstrap` access control | WARN | BY DESIGN | Implicit denial via RLS; managed by service_role only |
-| `audit_event` immutability | INFO | CONFIRMED | No user-facing write policies; service_role only |
-| Leaked Password Protection | INFO | CLOSED | Enabled in Supabase Dashboard |
+### Part 5: Dossier Immutability Guard
 
-## Step 5: Post-Change Restore Point
+References: `dossier_id` -- confirmed on both `rvm_item` and `rvm_document`.
 
-Create `Project Restore Points/RP-P2D-phase7c-closeout-post.md`.
+```sql
+CREATE OR REPLACE FUNCTION enforce_dossier_immutability()
+RETURNS TRIGGER AS $$
+DECLARE
+  v_status dossier_status;
+BEGIN
+  SELECT status INTO v_status FROM rvm_dossier WHERE id = NEW.dossier_id;
+  IF v_status IN ('decided', 'archived', 'cancelled') THEN
+    RAISE EXCEPTION 'Cannot modify entities in locked dossier (status: %)', v_status;
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+```
 
-## Step 6: Re-run Security Scan + Update Findings
+### Part 6: Document Version Lock
 
-Re-run scan, update/dismiss resolved findings, and report final state.
+Chain confirmed: `rvm_document_version.document_id` -> `rvm_document.decision_id` (nullable) -> `rvm_decision.is_final`.
+
+```sql
+CREATE OR REPLACE FUNCTION enforce_document_lock_on_decision()
+RETURNS TRIGGER AS $$
+DECLARE
+  v_decision_id uuid;
+  v_is_final boolean;
+BEGIN
+  SELECT decision_id INTO v_decision_id
+  FROM rvm_document WHERE id = NEW.document_id;
+
+  IF v_decision_id IS NOT NULL THEN
+    SELECT is_final INTO v_is_final
+    FROM rvm_decision WHERE id = v_decision_id;
+    IF v_is_final = true THEN
+      RAISE EXCEPTION 'Cannot add versions to document linked to finalized decision';
+    END IF;
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+```
+
+### Part 7: Generic Audit Logging (Schema-Safe)
+
+Uses `to_jsonb()` generically. Detects `status` via JSONB key check -- never references `OLD.status` directly.
+
+```sql
+CREATE OR REPLACE FUNCTION log_audit_event()
+RETURNS TRIGGER AS $$
+DECLARE
+  v_event_type TEXT;
+  v_payload JSONB;
+  v_user_id uuid;
+  v_role_code TEXT;
+  v_old_json JSONB;
+  v_new_json JSONB;
+BEGIN
+  v_user_id := public.get_current_user_id();
+
+  -- Get first role code from canonical user_role table
+  SELECT ur.role_code INTO v_role_code
+  FROM public.user_role ur
+  WHERE ur.user_id = v_user_id
+  LIMIT 1;
+
+  IF TG_OP = 'INSERT' THEN
+    v_event_type := 'created';
+    v_payload := to_jsonb(NEW);
+  ELSIF TG_OP = 'UPDATE' THEN
+    v_old_json := to_jsonb(OLD);
+    v_new_json := to_jsonb(NEW);
+    -- Detect status change via JSONB key (safe for all tables)
+    IF (v_old_json ? 'status') AND (v_new_json ? 'status')
+       AND (v_old_json->>'status') IS DISTINCT FROM (v_new_json->>'status') THEN
+      v_event_type := 'status_changed';
+    ELSE
+      v_event_type := 'updated';
+    END IF;
+    v_payload := jsonb_build_object('old', v_old_json, 'new', v_new_json);
+  ELSIF TG_OP = 'DELETE' THEN
+    v_event_type := 'deleted';
+    v_payload := to_jsonb(OLD);
+  END IF;
+
+  INSERT INTO public.audit_event (
+    entity_type, entity_id, event_type, event_payload,
+    actor_user_id, actor_role_code, occurred_at
+  ) VALUES (
+    TG_TABLE_NAME,
+    COALESCE(NEW.id, OLD.id),
+    v_event_type,
+    v_payload,
+    v_user_id,
+    v_role_code,
+    now()
+  );
+
+  RETURN COALESCE(NEW, OLD);
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path TO 'public';
+```
+
+### Part 8: Attach All Triggers
+
+```text
+BEFORE UPDATE triggers (workflow enforcement):
+  rvm_dossier       -> enforce_dossier_status_transition()
+  rvm_meeting       -> enforce_meeting_status_transition()
+  rvm_task          -> enforce_task_status_transition()
+  rvm_agenda_item   -> enforce_agenda_item_status_transition()
+  rvm_decision      -> enforce_chair_approval_gate()
+
+BEFORE INSERT OR UPDATE triggers (immutability):
+  rvm_item          -> enforce_dossier_immutability()
+  rvm_document      -> enforce_dossier_immutability()
+
+BEFORE INSERT trigger (lock):
+  rvm_document_version -> enforce_document_lock_on_decision()
+
+AFTER INSERT OR UPDATE triggers (audit):
+  rvm_dossier, rvm_item, rvm_task, rvm_meeting,
+  rvm_agenda_item, rvm_decision, rvm_document -> log_audit_event()
+
+AFTER INSERT trigger (audit):
+  rvm_document_version -> log_audit_event()
+```
+
+### Part 9: Privilege Hardening
+
+```sql
+-- status_transitions: read-only reference data
+-- No INSERT/UPDATE/DELETE policies = blocked for all non-service_role
+
+-- log_audit_event: SECURITY DEFINER, restrict EXECUTE
+REVOKE ALL ON FUNCTION log_audit_event() FROM PUBLIC;
+REVOKE ALL ON FUNCTION log_audit_event() FROM anon;
+-- Note: trigger functions are invoked by the trigger system,
+-- not directly by users, so no GRANT needed
+```
 
 ---
 
-## Files Changed Summary
+## Deliverables
 
-| File/Resource | Action | Change |
-|---|---|---|
-| Database migration | CREATE | `get_user_directory()` function + tightened `app_user_select` policy |
-| `docs/security-scan-phase7c.md` | CREATE | Formal disposition report |
-| `RP-P2D-phase7c-closeout-pre.md` | CREATE | Pre-change restore point |
-| `RP-P2D-phase7c-closeout-post.md` | CREATE | Post-change restore point |
 
-No frontend code changes required -- the only `app_user` query is a self-lookup which remains functional under the tightened policy.
+| #   | Deliverable                                     | File                                                                  |
+| --- | ----------------------------------------------- | --------------------------------------------------------------------- |
+| 1   | Pre-restore point                               | `Project Restore Points/RP-P8A-pre-20260213.md`                       |
+| 2   | Migration script (single file, all parts above) | `supabase/migrations/20260213HHMMSS_phase8a_workflow_enforcement.sql` |
+| 3   | Role-write matrix evidence                      | `docs/phase8a_role_write_matrix.md`                                   |
+| 4   | Audit immutability verification                 | `docs/phase8a_audit_immutability_verification.md`                     |
+| 5   | Post-restore point                              | `Project Restore Points/RP-P8A-post-20260213.md`                      |
+| 6   | Updated backend docs                            | `docs/security-scan-phase7c.md` (add Phase 8A controls reference)     |
 
----
 
-## Post-Change Verification
+## No Frontend Changes
 
-1. Auth sign-in deep link still works (self-lookup unaffected)
-2. Dashboard loads correctly
-3. Non-privileged role cannot SELECT other users from `app_user`
-4. `get_user_directory()` returns user list only for secretary/deputy/sys_admin roles
+The only app_user query is the self-lookup in `useAuthContext.tsx`. No service layer changes are required for Phase 8A -- the triggers enforce rules at the database level. Service layer write helpers will be added in Phase 8B when CRUD UI is built.
 
-## Phase 8 Gate
+## Post-Implementation Verification
 
-Phase 8 begins only after this closeout passes. First Phase 8 deliverable will be the Definition of Done + workflow state diagram + role/write matrix.
-
+1. Insert a dossier -> verify `audit_event` row created with `entity_type = 'rvm_dossier'`, `event_type = 'created'`
+2. Update dossier `draft` -> `registered` -> verify success + audit event with `status_changed`
+3. Update dossier `draft` -> `decided` -> verify EXCEPTION raised (invalid transition)
+4. Finalize decision without chair approval -> verify EXCEPTION raised
+5. Insert item into decided dossier -> verify EXCEPTION raised
+6. Verify `audit_event` has no INSERT/UPDATE/DELETE policies (immutable)  
+  
+**Make audit resilient when** `get_current_user_id()` **is NULL**
+  - In `log_audit_event()`, if `v_user_id` is NULL (service role or unexpected context), set:
+    - `actor_user_id = NULL`
+    - `actor_role_code = 'system'` (or NULL)  
+    This prevents hard failures and preserves audit continuity.
+7. **Explicitly ensure status_transitions is write-locked**
+  - Add explicit policies to block writes (belt-and-suspenders), or at minimum:
+    - confirm no INSERT/UPDATE/DELETE policies exist for authenticated.  
+    Since RLS default is deny, it’s likely fine, but we want **explicit audit-ready proof**.
