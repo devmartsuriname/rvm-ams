@@ -615,6 +615,24 @@ export type Database = {
           },
         ]
       }
+      status_transitions: {
+        Row: {
+          entity_type: string
+          from_status: string
+          to_status: string
+        }
+        Insert: {
+          entity_type: string
+          from_status: string
+          to_status: string
+        }
+        Update: {
+          entity_type?: string
+          from_status?: string
+          to_status?: string
+        }
+        Relationships: []
+      }
       super_admin_bootstrap: {
         Row: {
           auth_id: string | null
@@ -700,6 +718,14 @@ export type Database = {
       is_meeting_editable: { Args: { p_meeting_id: string }; Returns: boolean }
       is_super_admin: { Args: never; Returns: boolean }
       is_task_assignee: { Args: { p_task_id: string }; Returns: boolean }
+      validate_status_transition: {
+        Args: {
+          p_entity_type: string
+          p_new_status: string
+          p_old_status: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
       agenda_item_status: "scheduled" | "presented" | "withdrawn" | "moved"
