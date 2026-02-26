@@ -19,6 +19,7 @@
 | 9 | UI Stability & Consistency Hardening | CLOSED |
 | 9B | Modal XL Standardization | CLOSED |
 | 9C | UI Micro Polish (Darkone Alignment) | CLOSED |
+| 10A | Decision Status Hardening (Backend) | CLOSED |
 
 ## Database Architecture
 
