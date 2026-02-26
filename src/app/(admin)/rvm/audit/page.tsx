@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import React, { useState } from 'react'
 import { Card, CardBody, CardHeader } from 'react-bootstrap'
 import { Row, Col, Form, Table } from 'react-bootstrap'
 import PageTitle from '@/components/PageTitle'
@@ -90,9 +90,8 @@ const AuditLogPage = () => {
                 {events.map(evt => {
                   const isExpanded = expandedId === evt.id
                   return (
-                    <>
+                    <React.Fragment key={evt.id}>
                       <tr
-                        key={evt.id}
                         onClick={() => setExpandedId(isExpanded ? null : evt.id)}
                         style={{ cursor: 'pointer' }}
                       >
@@ -124,7 +123,7 @@ const AuditLogPage = () => {
                           </td>
                         </tr>
                       )}
-                    </>
+                    </React.Fragment>
                   )
                 })}
               </tbody>
