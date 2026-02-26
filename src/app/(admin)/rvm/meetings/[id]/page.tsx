@@ -10,6 +10,8 @@ import { MeetingStatusBadge, UrgencyBadge, DecisionStatusBadge } from '@/compone
 import { LoadingState, ErrorState } from '@/components/rvm/StateComponents'
 import MeetingStatusActions from '@/components/rvm/MeetingStatusActions'
 import EditMeetingForm from '@/components/rvm/EditMeetingForm'
+import CreateDecisionModal from '@/components/rvm/CreateDecisionModal'
+import DecisionManagementModal from '@/components/rvm/DecisionManagementModal'
 import { getErrorMessage } from '@/utils/rls-error'
 import { toast } from 'react-toastify'
 import type { Enums } from '@/integrations/supabase/types'
@@ -18,9 +20,14 @@ const MeetingDetailPage = () => {
   const { id } = useParams<{ id: string }>()
   const { data: meeting, isLoading, error, refetch } = useMeeting(id)
   const { data: decisions } = useDecisionsByMeeting(id)
-  const { canEditMeeting } = useUserRoles()
+  const { canEditMeeting, canCreateDecision, canEditDecision, canApproveDecision } = useUserRoles()
   const updateMeeting = useUpdateMeeting()
   const [editMode, setEditMode] = useState(false)
+
+  // Decision modal state
+  const [createDecisionAgendaId, setCreateDecisionAgendaId] = useState<string | null>(null)
+  const [manageDecisionAgendaId, setManageDecisionAgendaId] = useState<string | null>(null)
+  const [manageDecisionAgendaNum, setManageDecisionAgendaNum] = useState<number>(0)
 
   const formatDate = (dateString: string | null | undefined) => {
     if (!dateString) return '-'
@@ -75,6 +82,60 @@ const MeetingDetailPage = () => {
     } catch (err) {
       toast.error(getErrorMessage(err))
     }
+  }
+
+  // Check if an agenda item has a decision
+  const getItemDecision = (item: any) => {
+    return item.rvm_decision && item.rvm_decision[0] ? item.rvm_decision[0] : null
+  }
+
+  // Determine which action button to show for an agenda item
+  const renderActionButtons = (item: any) => {
+    const decision = getItemDecision(item)
+    const isFinal = decision?.is_final === true
+
+    // No actions when finalized
+    if (isFinal) return <Badge bg="dark">Final</Badge>
+
+    // Chair: Manage button if decision exists
+    if (canApproveDecision && decision) {
+      return (
+        <Button
+          variant="outline-primary"
+          size="sm"
+          onClick={() => { setManageDecisionAgendaId(item.id); setManageDecisionAgendaNum(item.agenda_number) }}
+        >
+          Manage
+        </Button>
+      )
+    }
+
+    // Secretary: Create or Edit/Manage
+    if (canCreateDecision && !decision) {
+      return (
+        <Button
+          variant="outline-success"
+          size="sm"
+          onClick={() => setCreateDecisionAgendaId(item.id)}
+        >
+          Create Decision
+        </Button>
+      )
+    }
+
+    if (canEditDecision && decision && !isFinal) {
+      return (
+        <Button
+          variant="outline-primary"
+          size="sm"
+          onClick={() => { setManageDecisionAgendaId(item.id); setManageDecisionAgendaNum(item.agenda_number) }}
+        >
+          Edit
+        </Button>
+      )
+    }
+
+    return <span className="text-muted small">—</span>
   }
 
   if (isLoading) {
@@ -177,7 +238,10 @@ const MeetingDetailPage = () => {
                       <span className="text-truncate" style={{ maxWidth: '150px' }}>
                         #{decision.rvm_agenda_item?.agenda_number}
                       </span>
-                      <DecisionStatusBadge status={decision.decision_status} />
+                      <div className="d-flex align-items-center gap-1">
+                        <DecisionStatusBadge status={decision.decision_status} />
+                        {decision.is_final && <Badge bg="dark">Final</Badge>}
+                      </div>
                     </li>
                   ))}
                 </ul>
@@ -207,6 +271,7 @@ const MeetingDetailPage = () => {
                       <th>Urgency</th>
                       <th>Status</th>
                       <th>Decision</th>
+                      <th>Actions</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -226,12 +291,13 @@ const MeetingDetailPage = () => {
                           <td><UrgencyBadge urgency={item.rvm_dossier?.urgency} /></td>
                           <td>{getAgendaStatusBadge(item.status)}</td>
                           <td>
-                            {item.rvm_decision && item.rvm_decision[0] ? (
-                              <DecisionStatusBadge status={item.rvm_decision[0].decision_status} />
+                            {getItemDecision(item) ? (
+                              <DecisionStatusBadge status={getItemDecision(item).decision_status} />
                             ) : (
                               <span className="text-muted small">-</span>
                             )}
                           </td>
+                          <td>{renderActionButtons(item)}</td>
                         </tr>
                       ))}
                   </tbody>
@@ -241,6 +307,25 @@ const MeetingDetailPage = () => {
           </Card>
         </Col>
       </Row>
+
+      {/* Create Decision Modal */}
+      {createDecisionAgendaId && (
+        <CreateDecisionModal
+          show={!!createDecisionAgendaId}
+          onHide={() => setCreateDecisionAgendaId(null)}
+          agendaItemId={createDecisionAgendaId}
+        />
+      )}
+
+      {/* Decision Management Modal */}
+      {manageDecisionAgendaId && (
+        <DecisionManagementModal
+          show={!!manageDecisionAgendaId}
+          onHide={() => { setManageDecisionAgendaId(null); setManageDecisionAgendaNum(0) }}
+          agendaItemId={manageDecisionAgendaId}
+          agendaNumber={manageDecisionAgendaNum}
+        />
+      )}
 
       <Footer />
     </>
