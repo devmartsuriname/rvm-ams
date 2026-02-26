@@ -1,197 +1,242 @@
-# Phase 10A — Decision Status Hardening (Backend)
+# Phase 10B — Decision UI Implementation Plan
 
 **Authority:** Devmart Guardian Rules
-**Mode:** Backend Hardening Only
-**Scope:** Database triggers + `useUserRoles` permission helpers
+**Mode:** Frontend Only
+**Pre-condition:** Phase 10A CLOSED (RP-P10A-post verified)
 
 ---
 
-## Pre-Condition
+## Restore Point
 
-Create restore point `RP-P10A-pre` before any modifications.
+Create `Project Restore Points/RP-P10B-pre.md` before any file changes.
 
 ---
 
-## Task 1 — Insert Decision Status Transitions
+## Task 1 — New UI Components
 
-Insert 5 valid transitions into `status_transitions` per the approved lifecycle:
+All in `src/components/rvm/`, following existing patterns (Bootstrap 5 + React-Bootstrap, Darkone parity).
+
+### 1.1 CreateDecisionModal
+
+- Pattern: mirrors `CreateMeetingModal` (Modal, size="lg", centered)
+- Props: `show`, `onHide`, `agendaItemId` (string)
+- Fields: `decision_text` (textarea, required), validated with zod
+- Uses `useCreateDecision` hook (already exists)
+- Status defaults to `pending` (hardcoded, no user selection)
+- Button disabled during mutation (`isPending`)
+- Toast on success/error
+- React Query invalidation handled by existing hook
+
+### 1.2 EditDecisionForm
+
+- Pattern: mirrors `EditMeetingForm` (inline toggle form within card)
+- Props: `decision` (existing decision data), `onSave`, `onCancel`, `isLoading`
+- Fields: `decision_text` (textarea, required)
+- Secretary can only edit text, NOT status (no status field in form)
+- Zod validation for text length
+- Save/Cancel buttons, disabled during mutation
+
+### 1.3 DecisionStatusActions
+
+- Pattern: mirrors `DossierStatusActions` / `MeetingStatusActions`
+- Props: `decisionId`, `currentStatus`, `isFinal`
+- Uses `useUserRoles().canApproveDecision` for visibility gate
+- Transition map (Chair-only):
 
 ```text
-decision | pending  | approved
-decision | pending  | deferred
-decision | pending  | rejected
-decision | deferred | pending
-decision | deferred | approved
+pending  -> [Approve, Defer, Reject]
+deferred -> [Approve, Re-submit to Pending]
+approved -> [] (no further status changes, only finalize)
+rejected -> [] (terminal)
 ```
 
-**Method:** SQL INSERT (data-only, no schema change).
+- Uses `useUpdateDecisionStatus` hook
+- Spinner during mutation, toast on success/error
+- Hidden when `isFinal === true`
+
+### 1.4 ChairApprovalActions
+
+- Pattern: custom component, simple button group
+- Props: `decisionId`, `decision` (full decision object)
+- Uses `useUserRoles().canFinalizeDecision` for visibility gate
+- Shows "Finalize Decision" button ONLY when:
+  - `decision_status === 'approved'`
+  - `chair_approved_by` is populated (or will be set atomically)
+  - `is_final === false`
+- Finalize flow:
+  1. Records chair approval (`useRecordChairApproval`)
+  2. Then sets `is_final = true` via `useUpdateDecision`
+  3. Both in sequence (not optimistic)
+- Confirm dialog before finalization (using state toggle pattern from DossierStatusActions)
+- Hidden when `is_final === true`
 
 ---
 
-## Task 2 — Create `enforce_decision_status_transition()` Trigger
+## Task 2 — Meeting Detail Page Expansion
 
-New PL/pgSQL function following the exact pattern of `enforce_dossier_status_transition()`:
+Modify: `src/app/(admin)/rvm/meetings/[id]/page.tsx`
 
-- Fires BEFORE UPDATE on `rvm_decision`
-- When `decision_status` changes (OLD IS DISTINCT FROM NEW), calls `validate_status_transition('decision', OLD, NEW)`
-- Raises exception on invalid transition
-- Additionally blocks ALL updates when `is_final = true` (immutability enforcement)
+### 2.1 Expand meetingService fetch
 
-**Method:** Migration SQL (DDL -- new function + trigger).
+The existing `fetchMeetingById` already selects `rvm_decision(id, decision_status, is_final)` on agenda items. This is sufficient for status badges. For the decision management modal, we need full decision data. Approach:
 
----
+- Use `useDecision(agendaItemId)` (already exists) inside the management modal to fetch full decision including `decision_text`, `chair_approved_by`, `chair_approved_at`
+- No changes to meetingService needed
 
-## Task 3 — Create Chair-Only `decision_status` Enforcement Trigger
+### 2.2 Agenda Items Table Enhancement
 
-New PL/pgSQL function `enforce_chair_only_decision_status()`:
+Add a 7th column "Actions" to the agenda items table:
 
-- Fires BEFORE UPDATE on `rvm_decision`
-- If `decision_status` changes (OLD IS DISTINCT FROM NEW):
-  - Retrieves current user roles via `get_user_roles()`
-  - If user is NOT `chair_rvm` AND NOT super_admin: RAISE EXCEPTION
-- Secretary retains ability to edit `decision_text` (and other non-status fields) when `is_final = false` -- this is unchanged, handled by existing RLS
+- Secretary (canCreateDecision): "Create Decision" button if no decision exists for that agenda item
+- Secretary (canEditDecision): "Edit" button if decision exists and not final
+- Chair (canApproveDecision): "Manage" button to open decision management
+- audit_readonly / deputy_secretary: No action buttons
+- When `is_final === true`: No action buttons, badge shows "Final" indicator
 
-**Method:** Migration SQL (DDL -- new function + trigger).
+### 2.3 Decision Management Modal
 
----
+New inline approach: clicking an action button opens a management modal for the specific agenda item's decision. The modal contains:
 
-## Task 4 — Validate Existing Finalization Gate
+- Decision text (read-only or editable based on role)
+- Current status badge
+- EditDecisionForm (for secretary, when not final)
+- DecisionStatusActions (for chair)
+- ChairApprovalActions (for chair, when status is approved)
+- Finalization indicator (when is_final === true, full read-only)
 
-The `enforce_chair_approval_gate()` trigger already:
+This will be a new component `DecisionManagementModal` that composes the above sub-components based on role and state.
 
-- Blocks `is_final = true` without `chair_approved_by` and `chair_approved_at`
-- Cascades dossier to `decided`
+### 2.4 Decisions Summary Card Enhancement
 
-**No changes needed.** Verification only (via SQL test queries).
+The existing sidebar "Decisions Summary" card already shows decision badges. Add:
 
----
-
-## Task 5 — Add Decision Permission Helpers to `useUserRoles`
-
-Add to `src/hooks/useUserRoles.ts`:
-
-```text
-canCreateDecision:    secretary_rvm, admin_reporting
-canEditDecision:      secretary_rvm (UI hint only -- RLS enforces is_final gate)
-canApproveDecision:   chair_rvm
-canFinalizeDecision:  chair_rvm
-```
-
-These are UI hints only -- RLS and triggers remain source of truth.
+- "Final" indicator (small icon or badge variant) for finalized decisions
+- No other changes needed
 
 ---
 
-## Task 6 — Documentation & Restore Points
+## Task 3 — Role Permission Usage
 
-- Create `Project Restore Points/RP-P10A-pre.md`
-- Create `Project Restore Points/RP-P10A-post.md` (after verification)
-- Update `docs/architecture.md` (Phase 10A status)
-- Update `docs/backend.md` (Phase 10A status)
+All gating uses existing `useUserRoles` helpers added in Phase 10A:
+
+
+| Helper                | Usage                                       |
+| --------------------- | ------------------------------------------- |
+| `canCreateDecision`   | Show "Create Decision" button               |
+| `canEditDecision`     | Show EditDecisionForm                       |
+| `canApproveDecision`  | Show DecisionStatusActions                  |
+| `canFinalizeDecision` | Show ChairApprovalActions / Finalize button |
+
+
+No new permission helpers needed.
 
 ---
 
-## Files Modified
+## Task 4 — Edge Case Controls
 
+- **Duplicate prevention**: "Create Decision" button only shown when `item.rvm_decision` is empty. Backend enforces UNIQUE on `agenda_item_id`.
+- **Button states**: All mutation buttons disabled during `isPending`
+- **No optimistic UI**: Status changes wait for server response, then invalidate queries
+- **React Query invalidation**: Existing hooks already invalidate `decisions`, `agenda-items`, and `meetings` query keys
 
-| File                        | Change Type                       |
-| --------------------------- | --------------------------------- |
-| `src/hooks/useUserRoles.ts` | Add 4 decision permission helpers |
-
+---
 
 ## Files Created
 
 
-| File                                     | Purpose                 |
-| ---------------------------------------- | ----------------------- |
-| `Project Restore Points/RP-P10A-pre.md`  | Pre-execution snapshot  |
-| `Project Restore Points/RP-P10A-post.md` | Post-execution snapshot |
+| File                                             | Purpose                                 |
+| ------------------------------------------------ | --------------------------------------- |
+| `src/components/rvm/CreateDecisionModal.tsx`     | Create decision for an agenda item      |
+| `src/components/rvm/EditDecisionForm.tsx`        | Edit decision text (inline form)        |
+| `src/components/rvm/DecisionStatusActions.tsx`   | Chair-only status transition buttons    |
+| `src/components/rvm/ChairApprovalActions.tsx`    | Chair finalization flow                 |
+| `src/components/rvm/DecisionManagementModal.tsx` | Composite modal for decision management |
+| `Project Restore Points/RP-P10B-pre.md`          | Pre-implementation restore point        |
 
 
-## Files Updated (Docs)
+## Files Modified
 
 
-| File                   | Change                |
-| ---------------------- | --------------------- |
-| `docs/architecture.md` | Phase 10A status line |
-| `docs/backend.md`      | Phase 10A status line |
+| File                                         | Change                                        |
+| -------------------------------------------- | --------------------------------------------- |
+| `src/app/(admin)/rvm/meetings/[id]/page.tsx` | Add Actions column, integrate decision modals |
+| `docs/architecture.md`                       | Phase 10B status line                         |
 
 
-## Database Changes (via Migration)
+## Files NOT Modified (Scope Boundary)
 
+- No services created or modified
+- No hooks created or modified
+- No routes added
+- No schema changes
+- No RLS changes
+- No trigger modifications
 
-| Type        | Description                                               |
-| ----------- | --------------------------------------------------------- |
-| DATA INSERT | 5 rows into `status_transitions`                          |
-| DDL         | `enforce_decision_status_transition()` function + trigger |
-| DDL         | `enforce_chair_only_decision_status()` function + trigger |
+---
 
-
-Note: APPROVED — Execute Phase 10A (Decision Status Hardening)
+**GOVERNANCE NOTE — MODAL SIZE STANDARDIZATION (MANDATORY)**
 
 Authority: Devmart Guardian Rules
 
-Approval Basis: Phase 10A plan is scope-correct and governance-aligned.
+Reference: Phase 9B — Modal XL Standardization (CLOSED)
 
-MANDATORY CONDITIONS (must be proven in the Phase 10A post-report):
+Correction Required:
 
-1) Super Admin Bootstrap Safety
+All create/edit/management modals must use:
 
-- If you reference any “super_admin” bypass in triggers, you must explicitly confirm it is TEST-ONLY and DISABLED in production (or not deployed / is_active=false).
+Modal size="xl"
 
-- Provide evidence in the report (what mechanism prevents production bypass).
+The current Phase 10B plan references:
 
-2) Trigger Interaction Proof
+Modal size="lg"
 
-- You are adding two BEFORE UPDATE triggers on rvm_decision:
+This is not compliant with the existing system standard.
 
-  a) enforce_decision_status_transition()
+Reason:
 
-  b) enforce_chair_only_decision_status()
+- All other modules (Dossiers, Meetings, Tasks) are standardized on XL.
 
-- In the post-report, include evidence that:
+- LG modals are deprecated.
 
-  - Chair valid transitions succeed
+- No regression in modal sizing is allowed.
 
-  - Invalid transitions are blocked
+- UI consistency across modules is mandatory.
 
-  - Secretary cannot change decision_status (DB-level block)
+Required Change:
 
-  - Secretary can still edit decision_text when is_final=false
+Update:
 
-  - is_final=true blocks all updates (immutability)
+CreateDecisionModal
 
-  - No trigger conflicts or unintended lockouts
+DecisionManagementModal
 
-Governance Execution Rules:
+From:
 
-- Create RP-P10A-pre BEFORE any DB change
+size="lg"
 
-- Execute only Phase 10A scope (no UI)
+To:
 
-- Create RP-P10A-post AFTER verification
+size="xl"
 
-- Update docs/[architecture.md](http://architecture.md) and docs/[backend.md](http://backend.md) with Phase 10A status
+No other modal sizes are permitted in RVM-AMS.
 
-- Provide SQL diff summary + test evidence + governance declaration
+This change must be reflected in:
 
-Proceed with implementation now. Stop after Phase 10A and await further instructions.  
+- Component implementation
+
+- Plan documentation
+
+- Screenshot verification
+
+Execution of Phase 10B must use XL only.
+
+No LG allowed.  
   
-**Verification Plan**
+**Technical Notes**
 
-After implementation, test via SQL:
-
-1. **Valid transition**: UPDATE decision from `pending` to `approved` as chair -- should succeed
-2. **Invalid transition**: UPDATE decision from `rejected` to `approved` -- should raise exception
-3. **Non-chair status change**: UPDATE `decision_status` as secretary -- should raise exception
-4. **Secretary text edit**: UPDATE `decision_text` as secretary (when not final) -- should succeed
-5. **Finalization without approval**: SET `is_final = true` without `chair_approved_by` -- should raise exception (existing gate)
-6. **Immutability**: UPDATE any field when `is_final = true` -- should raise exception
-
-## Scope Boundary
-
-- Zero RLS changes
-- Zero enum changes
-- Zero new tables
-- Zero UI changes
-- Zero new routes
-- Zero new services/hooks (only `useUserRoles` additions)
+- All components use Bootstrap 5 + React-Bootstrap exclusively
+- No Tailwind, no inline style hacks, no custom CSS
+- Modal follows `size="lg" centered` standardization
+- Table headers use `table-light` class
+- Status badge rendering reuses existing `DecisionStatusBadge` from `StatusBadges.tsx`
+- The `rvm_decision` array on agenda items is accessed as `item.rvm_decision?.[0]` (1:1 via UNIQUE, but Supabase returns arrays for relations)
