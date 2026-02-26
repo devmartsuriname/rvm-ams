@@ -453,6 +453,48 @@ export type Database = {
           },
         ]
       }
+      rvm_illegal_attempt_log: {
+        Row: {
+          action: string
+          actor_auth_id: string | null
+          actor_role: string | null
+          created_at: string
+          entity_id: string | null
+          entity_type: string
+          id: string
+          payload: Json | null
+          reason: string
+          request_id: string | null
+          rule: string
+        }
+        Insert: {
+          action: string
+          actor_auth_id?: string | null
+          actor_role?: string | null
+          created_at?: string
+          entity_id?: string | null
+          entity_type: string
+          id?: string
+          payload?: Json | null
+          reason: string
+          request_id?: string | null
+          rule: string
+        }
+        Update: {
+          action?: string
+          actor_auth_id?: string | null
+          actor_role?: string | null
+          created_at?: string
+          entity_id?: string | null
+          entity_type?: string
+          id?: string
+          payload?: Json | null
+          reason?: string
+          request_id?: string | null
+          rule?: string
+        }
+        Relationships: []
+      }
       rvm_item: {
         Row: {
           attachments_expected: boolean | null
@@ -718,6 +760,17 @@ export type Database = {
       is_meeting_editable: { Args: { p_meeting_id: string }; Returns: boolean }
       is_super_admin: { Args: never; Returns: boolean }
       is_task_assignee: { Args: { p_task_id: string }; Returns: boolean }
+      log_illegal_attempt: {
+        Args: {
+          p_action: string
+          p_entity_id: string
+          p_entity_type: string
+          p_payload?: Json
+          p_reason: string
+          p_rule: string
+        }
+        Returns: undefined
+      }
       validate_status_transition: {
         Args: {
           p_entity_type: string
