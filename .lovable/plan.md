@@ -1,132 +1,67 @@
 
 
-# PHASE 9A — UI STABILITY & CONSISTENCY HARDENING
+# PHASE 9B — MODAL XL STANDARDIZATION
 
 **Authority:** Devmart Guardian Rules
-**Classification:** Zero-Scope-Expansion
+**Classification:** Zero Business Logic Expansion
 **Date:** 2026-02-26
 
 ---
 
-## TASK 1: Fix React Fragment Key Warnings
+## Current State Analysis
 
-Two files use bare `<>` fragments wrapping sibling `<tr>` elements inside `.map()`, which causes React key warnings.
+| Modal | `size` | `centered` | Header Pattern | Footer Pattern | Grid (`Row g-3`) |
+|---|---|---|---|---|---|
+| CreateDossierModal | `"lg"` | Yes | `Modal.Title` | Cancel + Primary w/ Spinner | Yes |
+| CreateMeetingModal | **(none — default/medium)** | Yes | `Modal.Title` | Cancel + Primary w/ Spinner | Yes |
+| CreateTaskModal | `"lg"` | Yes | `Modal.Title` | Cancel + Primary w/ Spinner | Yes |
 
-### Files Modified
+**Only one change needed:** `CreateMeetingModal` line 60 — add `size="lg"`.
 
-**`src/app/(admin)/rvm/tasks/page.tsx`** (line 198)
-- Replace `<>` with `<React.Fragment key={task.id}>` (and closing tag)
-- Remove redundant `key={task.id}` from the inner `<tr>` on line 199 (key moves to Fragment)
-
-**`src/app/(admin)/rvm/audit/page.tsx`** (line 93)
-- Replace `<>` with `<React.Fragment key={evt.id}>` (and closing tag)
-- Remove redundant `key={evt.id}` from the inner `<tr>` on line 95
-
-Both are 2-line changes per file. No logic changes.
+CreateDossierModal and CreateTaskModal already fully conform to the standard. No spacing or layout normalization required — all three use identical `Row className="g-3"` with `Col md={6|12}` patterns, identical footer structure, and identical header structure.
 
 ---
 
-## TASK 2: Modal Standardization Audit (Report Only)
+## Execution Plan
 
-### Inventory
+### Step 1: Create Restore Point
+- `Project Restore Points/RP-P9B-pre-modal-standardization.md`
 
-| Modal/Form | Type | Size Prop | Layout | Notes |
-|---|---|---|---|---|
-| `CreateDossierModal` | `<Modal>` | `size="lg"` | 2-column grid, `centered` | Most fields, widest content |
-| `CreateMeetingModal` | `<Modal>` | (default/medium) | 2-column grid, `centered` | Only 3 fields; smaller is appropriate |
-| `CreateTaskModal` | `<Modal>` | `size="lg"` | 2-column grid, `centered` | Many fields, consistent with Dossier |
-| `EditDossierForm` | Inline form (not modal) | N/A | 2-column grid | Toggle on detail page |
-| `EditMeetingForm` | Inline form (not modal) | N/A | 2-column grid | Toggle on detail page |
-| `EditTaskForm` | Inline form (not modal) | N/A | 2-column grid, `bg-light` wrapper | Inline on list page |
+### Step 2: Fix CreateMeetingModal
+- **File:** `src/components/rvm/CreateMeetingModal.tsx`
+- **Line 60:** Change `<Modal show={show} onHide={handleClose} centered>` to `<Modal show={show} onHide={handleClose} size="lg" centered>`
+- This is a single-attribute addition. Zero logic changes.
 
-### Findings
+### Step 3: Verify Dossier and Task Modals
+- Both already use `size="lg"`, `centered`, consistent header/footer. No changes needed.
 
-- **Sizing inconsistency:** `CreateMeetingModal` uses default (medium) size while the other two create modals use `size="lg"`. This is functionally acceptable given Meeting has far fewer fields, but is inconsistent.
-- **Edit forms are NOT modals** -- they are inline toggle forms. No modal standardization applies to them.
-- **All modals use `centered` prop** -- consistent.
-- **All modals use the same Footer pattern** (Cancel + Submit with Spinner) -- consistent.
+### Step 4: Create Documentation
+- `docs/Phase-9B-Modal-Standardization.md` — Standardization report with before/after
+- Update `docs/backend.md` — Add Phase 9B status line
+- Update `docs/architecture.md` — Add Phase 9B status line
 
-### Recommendation (Deferred)
-- Standardize `CreateMeetingModal` to `size="lg"` in a future UI Polish phase for visual consistency across all create modals.
-- No changes in Phase 9A per scope constraints.
+### Step 5: Create Post Restore Point
+- `Project Restore Points/RP-P9B-post-modal-standardization.md`
 
 ---
 
-## TASK 3: Spinner & Loading Consistency Audit
+## Files Modified (Code)
+- `src/components/rvm/CreateMeetingModal.tsx` — Add `size="lg"` prop (1 attribute, 1 line)
 
-### Architecture Review
+## Files Created (Documentation)
+- `Project Restore Points/RP-P9B-pre-modal-standardization.md`
+- `Project Restore Points/RP-P9B-post-modal-standardization.md`
+- `docs/Phase-9B-Modal-Standardization.md`
 
-- **Single `<ToastContainer>`**: Confirmed at `AppProvidersWrapper.tsx` line 29. No duplicates anywhere.
-- **Route-level loading gate**: `router.tsx` lines 20-26 renders single `<LoadingFallback />` during auth init for protected routes. Auth routes bypass the gate.
-- **AdminLayout**: `TopNavigationBar` uses `fallback={null}`, `VerticalNavigationBar` uses `fallback={<div />}`, page content uses `fallback={<LoadingFallback />}`. This is the correct single-spinner pattern.
-- **No duplicate spinners**: Each page uses its own `isLoading` state from React Query hooks, rendering `<LoadingState />` component. No overlapping spinners.
+## Files Updated (Documentation)
+- `docs/backend.md`
+- `docs/architecture.md`
 
-### Verdict: No duplicate spinners detected. No fix needed.
-
----
-
-## TASK 4: Route & Navigation Integrity
-
-### Routes Registered (from `src/routes/index.tsx`)
-
-| Route | Component | Auth Protected |
-|---|---|---|
-| `/` | Redirect to `/dashboards` | Yes |
-| `/dashboards` | Dashboards | Yes |
-| `/rvm/dossiers` | DossierList | Yes |
-| `/rvm/dossiers/:id` | DossierDetail | Yes |
-| `/rvm/meetings` | MeetingList | Yes |
-| `/rvm/meetings/:id` | MeetingDetail | Yes |
-| `/rvm/tasks` | TaskList | Yes |
-| `/rvm/audit` | AuditLog | Yes |
-| `/auth/sign-in` | AuthSignIn | No (public) |
-| `*` (catch-all) | Redirect | Conditional |
-
-### Menu Items (from `src/assets/data/menu-items.ts`)
-
-5 entries: Dashboard, Dossiers, Meetings, Tasks, Audit Log. All resolve to registered routes.
-
-### Verdict
-- 0 orphan routes
-- 0 broken menu entries
-- 0 Darkone demo routes in router
-- All protected routes gated by `isAuthenticated` check
-- Catch-all properly redirects
-
----
-
-## TASK 5: Governance Integrity Declaration
-
-Phase 9A modifies exactly **2 files**:
-1. `src/app/(admin)/rvm/tasks/page.tsx` -- Fragment key fix only
-2. `src/app/(admin)/rvm/audit/page.tsx` -- Fragment key fix only
-
-Confirmation:
-- No schema changed
-- No RLS changed
-- No new routes added
-- No new modules added
+## Governance Declaration
+- Zero validation logic changes
+- Zero submit handler changes
+- Zero role gating changes
+- Zero schema/RLS/trigger changes
+- Zero new routes or modules
 - Zero scope expansion
-
----
-
-## FILES TO CREATE/MODIFY
-
-### Modified (code changes)
-- `src/app/(admin)/rvm/tasks/page.tsx` -- Replace `<>` with `<React.Fragment key={task.id}>`
-- `src/app/(admin)/rvm/audit/page.tsx` -- Replace `<>` with `<React.Fragment key={evt.id}>`
-
-### Created (documentation only)
-- `Project Restore Points/RP-P9A-pre-stability-hardening.md`
-- `Project Restore Points/RP-P9A-post-stability-hardening.md`
-- `docs/Phase-9-UI-Stability-Report.md` -- Contains Tasks 2-4 audit findings
-- `docs/backend.md` -- Append Phase 9 status line
-- `docs/architecture.md` -- Append Phase 9 status line
-
-### Build Order
-1. Create `RP-P9A-pre-stability-hardening.md`
-2. Fix Fragment keys in `tasks/page.tsx` and `audit/page.tsx`
-3. Create `docs/Phase-9-UI-Stability-Report.md` with modal audit, spinner audit, and route verification
-4. Update `docs/backend.md` and `docs/architecture.md`
-5. Create `RP-P9A-post-stability-hardening.md`
 
