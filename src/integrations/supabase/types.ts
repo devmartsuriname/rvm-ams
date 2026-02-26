@@ -744,6 +744,14 @@ export type Database = {
     }
     Functions: {
       get_current_user_id: { Args: never; Returns: string }
+      get_latest_violation: {
+        Args: { p_entity_id: string; p_entity_type: string }
+        Returns: {
+          created_at: string
+          reason: string
+          rule: string
+        }[]
+      }
       get_user_directory: {
         Args: never
         Returns: {

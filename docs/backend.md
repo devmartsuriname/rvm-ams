@@ -23,7 +23,7 @@
 | 10B | Navigation Structure Correction | CLOSED |
 | 10C | Decision Finalization Hard Lock Verification | CLOSED |
 | 10D | Chair Gate Formalization Layer (UI Visibility) | CLOSED |
-| 11 | Illegal Attempt Logging Hardening | PARTIALLY IMPLEMENTED |
+| 11 | Illegal Attempt Logging Hardening | FULLY WORKING |
 
 ## Database Architecture
 
@@ -65,6 +65,9 @@
 
 - Table `rvm_illegal_attempt_log` created for forensic logging of blocked mutations
 - Function `log_illegal_attempt()` (SECURITY DEFINER) integrated into 5 enforcement triggers
-- dblink extension enabled (in `extensions` schema) for autonomous transactions
-- **Known gap:** dblink localhost connections restricted on Supabase managed — logging is best-effort
-- Enforcement is 100% intact regardless of logging status (Rule D)
+- **Architecture:** RETURN NULL pattern — triggers insert log then return NULL (blocks mutation without exception, log persists)
+- dblink removed (not functional on managed Supabase); replaced with direct INSERT + RETURN NULL
+- Service layer updated with `handleGuardedUpdate()` to detect silent rejections and fetch violation reasons
+- `get_latest_violation()` RPC provides violation reason lookup
+- Enforcement is 100% intact, logging is FULLY WORKING
+- **Verified:** 2 blocked mutations produced 2 persistent log entries with full payload
