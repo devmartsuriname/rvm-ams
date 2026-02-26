@@ -6,7 +6,7 @@ import { Link, useParams } from 'react-router-dom'
 import { useMeeting, useUpdateMeeting } from '@/hooks/useMeetings'
 import { useDecisionsByMeeting } from '@/hooks/useDecisions'
 import { useUserRoles } from '@/hooks/useUserRoles'
-import { MeetingStatusBadge, UrgencyBadge, DecisionStatusBadge } from '@/components/rvm/StatusBadges'
+import { MeetingStatusBadge, UrgencyBadge, DecisionLifecycleBadge } from '@/components/rvm/StatusBadges'
 import { LoadingState, ErrorState } from '@/components/rvm/StateComponents'
 import MeetingStatusActions from '@/components/rvm/MeetingStatusActions'
 import EditMeetingForm from '@/components/rvm/EditMeetingForm'
@@ -238,10 +238,7 @@ const MeetingDetailPage = () => {
                       <span className="text-truncate" style={{ maxWidth: '150px' }}>
                         #{decision.rvm_agenda_item?.agenda_number}
                       </span>
-                      <div className="d-flex align-items-center gap-1">
-                        <DecisionStatusBadge status={decision.decision_status} />
-                        {decision.is_final && <Badge bg="dark">Final</Badge>}
-                      </div>
+                      <DecisionLifecycleBadge status={decision.decision_status} isFinal={decision.is_final} />
                     </li>
                   ))}
                 </ul>
@@ -292,7 +289,7 @@ const MeetingDetailPage = () => {
                           <td>{getAgendaStatusBadge(item.status)}</td>
                           <td>
                             {getItemDecision(item) ? (
-                              <DecisionStatusBadge status={getItemDecision(item).decision_status} />
+                              <DecisionLifecycleBadge status={getItemDecision(item).decision_status} isFinal={getItemDecision(item).is_final} />
                             ) : (
                               <span className="text-muted small">-</span>
                             )}
