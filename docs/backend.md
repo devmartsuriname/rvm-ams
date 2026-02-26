@@ -16,6 +16,7 @@
 | 6 | DMS-Light (Schema Only) | CLOSED |
 | 7 | Reporting & Dashboards | CLOSED |
 | 8 | Audit Finalization | CLOSED |
+| 9 | UI Stability & Consistency Hardening | CLOSED |
 
 ## Database Architecture
 

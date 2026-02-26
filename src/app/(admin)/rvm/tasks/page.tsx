@@ -1,3 +1,4 @@
+import React from 'react'
 import Footer from '@/components/layout/Footer'
 import PageTitle from '@/components/PageTitle'
 import { Card, CardBody, CardHeader, Table, Form, Row, Col, Button, Nav } from 'react-bootstrap'
@@ -195,8 +196,8 @@ const TaskListPage = () => {
               </thead>
               <tbody>
                 {tasks.map((task) => (
-                  <>
-                    <tr key={task.id} className={isOverdue(task.due_at, task.status) ? 'table-danger' : ''}>
+                  <React.Fragment key={task.id}>
+                    <tr className={isOverdue(task.due_at, task.status) ? 'table-danger' : ''}>
                       <td className="text-truncate" style={{ maxWidth: '200px' }}>
                         {task.title}
                       </td>
@@ -248,7 +249,7 @@ const TaskListPage = () => {
                         </td>
                       </tr>
                     )}
-                  </>
+                  </React.Fragment>
                 ))}
               </tbody>
             </Table>
