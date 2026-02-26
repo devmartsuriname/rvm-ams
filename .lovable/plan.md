@@ -1,234 +1,327 @@
-# Phase 10D — Chair Gate Formalization Layer
 
-**Authority:** Devmart Guardian Rules
-**Mode:** Workflow Visibility Tightening
-**Scope:** Decision Finalization Visibility + Chair Gate Clarity
+# Phase 11 — Illegal Attempt Logging Hardening
+
+**Authority:** Devmart Guardian Rules  
+**Mode:** Backend Hardening Only  
+**Scope:** Log blocked/illegal mutation attempts for governance-grade forensics
 
 ---
 
-## Pre-Condition
+## Pre-Condition Verification
 
-- Phase 10C: CLOSED (verified in `docs/backend.md`)
-- No immutability gaps exist (confirmed in Phase 10C)
-- Create `Project Restore Points/RP-P10D-chair-gate-pre.md`
+- Phase 10A: CLOSED
+- Phase 10B: CLOSED
+- Phase 10C: CLOSED
+- Phase 10D: CLOSED
+- No open regressions (ApexCharts TS warning remains out-of-scope)
+- Restore point `RP-P11-illegal-attempts-pre.md` will be created first
 
 ---
 
 ## Current State Assessment
 
-### What exists today:
+Five enforcement triggers currently block illegal mutations via `RAISE EXCEPTION`:
 
-1. **Decision badges**: `DecisionStatusBadge` shows `pending/approved/deferred/rejected`. A separate `Badge bg="dark"` shows "Final" when `is_final = true`. These are used in:
-  - Meeting Detail page (agenda table Decision column)
-  - Meeting Detail Decisions Summary sidebar
-  - Decisions List page
-  - Decision Management Modal
-2. **Chair approval info**: Only shown in `DecisionManagementModal` as a small text line (`chair_approved_at`) — and only when `chair_approved_by` is already set. No "Awaiting Chair Approval" state shown.
-3. **Role-based actions**: `ChairApprovalActions` and `DecisionStatusActions` correctly check `canFinalizeDecision` and `canApproveDecision`. But super_admin sees all buttons (mirroring RLS override).
-4. **Dossier progression**: `DossierStatusActions` correctly maps `decided -> archived` only. No regression possible in UI.
+| Trigger | Table | Blocks | Rule Label |
+|---------|-------|--------|------------|
+| `enforce_decision_status_transition` | `rvm_decision` | Updates when `is_final = true`; invalid status transitions | `DECISION_FINAL_LOCK`, `DECISION_INVALID_TRANSITION` |
+| `enforce_chair_only_decision_status` | `rvm_decision` | Non-chair users changing `decision_status` | `CHAIR_ONLY_STATUS` |
+| `enforce_chair_approval_gate` | `rvm_decision` | Finalization without chair approval fields | `CHAIR_GATE_MISSING` |
+| `enforce_document_lock_on_decision` | `rvm_document_version` | INSERT when linked decision is finalized | `DOCUMENT_FINAL_LOCK` |
+| `enforce_dossier_status_transition` | `rvm_dossier` | Invalid dossier status transitions (includes regression) | `DOSSIER_INVALID_TRANSITION` |
 
-### Gaps identified:
+All triggers use `RAISE EXCEPTION` which aborts the transaction. The logging call must happen **before** the RAISE so the log INSERT is part of a nested autonomous action (or uses a separate mechanism).
 
-- No unified "decision lifecycle badge" showing Draft vs Awaiting Chair Approval vs Final
-- Chair Gate section in modal is minimal (just a timestamp line, no visual separator)
-- No "Awaiting Chair Approval" indicator when decision is approved but not yet finalized
-- Audit viewer has no special filtering for finalization events
+### Critical Design Decision: Exception vs. Logging Order
+
+PostgreSQL `RAISE EXCEPTION` rolls back the entire transaction, including any prior INSERTs in the same transaction. To solve this:
+
+- Use `dblink` for autonomous transactions (adds dependency)
+- OR use a **pre-exception SAVEPOINT** pattern
+- OR accept that logging happens in a **separate SECURITY DEFINER function that uses `dblink_exec` to local**
+
+**Recommended approach:** Use a `SECURITY DEFINER` function with `dblink` to insert the log record in an autonomous transaction. If `dblink` is not available or too complex, an alternative is to catch exceptions in the application layer. However, per the spec requirement "Must not depend on application layer", `dblink` is the correct approach.
+
+**Simpler alternative (recommended):** Since Supabase PostgreSQL has the `pg_background` or we can use a simpler pattern — log BEFORE the RAISE using a separate `BEGIN...EXCEPTION` block inside the logging function itself that commits via `dblink`. Actually, the simplest reliable pattern for Supabase is:
+
+Use **`PERFORM` with a SECURITY DEFINER function that itself opens a new `dblink` connection to localhost** to insert the log autonomously. If `dblink` is unavailable, we fall back to a **background worker pattern** or accept that the log is best-effort.
+
+**Pragmatic approach chosen:** Since `dblink` may not be enabled on this Supabase instance, and per rule D ("if logging fails, the original block still happens"), we will:
+
+1. Attempt the log INSERT inside a nested `BEGIN...EXCEPTION WHEN OTHERS THEN NULL; END;` block
+2. Then RAISE the original exception
+3. Since RAISE rolls back, the log would also roll back...
+
+This means we need `dblink` or must accept application-layer logging. Let me check if `dblink` is available.
+
+**Final pragmatic decision:** Given Supabase constraints, the most reliable approach is:
+
+- Create the `rvm_illegal_attempt_log` table
+- Create the `log_illegal_attempt()` SECURITY DEFINER function
+- Modify triggers to call `log_illegal_attempt()` **before** `RAISE EXCEPTION`
+- Wrap the log call in `BEGIN...EXCEPTION WHEN OTHERS THEN NULL; END;`
+- **Key insight:** The RAISE EXCEPTION will roll back the log INSERT in the same transaction. To work around this, we use **`pg_notify`** to emit a notification, and a **separate trigger on a helper channel** or simply accept that in PostgreSQL without `dblink`, autonomous transactions are not natively supported.
+
+**REVISED FINAL APPROACH:** The most governance-compliant solution without `dblink`:
+
+Replace `RAISE EXCEPTION` with `RAISE EXCEPTION` but **restructure the triggers to use a two-phase pattern**:
+1. Use an **edge function** as a webhook listener? No — spec says "must not depend on application layer."
+
+**ACTUAL SIMPLEST CORRECT APPROACH:**
+
+After careful analysis, the correct PostgreSQL-native pattern is:
+
+- The triggers **cannot** log and then raise in the same transaction (the raise rolls back the log).
+- However, we can use **`RAISE ... USING DETAIL`** and capture the exception at the **statement level** — but that requires app-layer cooperation.
+- **The only pure-database solution is `dblink`.**
+
+We will:
+1. Check if `dblink` extension is available (it is on most Supabase instances)
+2. If yes: enable `dblink` extension, use it for autonomous log inserts
+3. If no: document this as a known limitation and defer to app-layer logging
 
 ---
 
-## Task 1 — Decision State Visibility Standardization
+## Implementation Plan
 
-### Change: Create `DecisionLifecycleBadge` component
+### Task 1 — Create `rvm_illegal_attempt_log` Table
 
-A single component that renders the correct lifecycle state badge based on decision data:
+**Migration SQL:**
 
+```sql
+-- Enable dblink extension (available on Supabase)
+CREATE EXTENSION IF NOT EXISTS dblink;
 
-| Condition                                             | Badge                 | Color       |
-| ----------------------------------------------------- | --------------------- | ----------- |
-| `is_final = true`                                     | "Finalized"           | `success`   |
-| `decision_status = 'approved'` AND `is_final = false` | "Awaiting Chair Gate" | `warning`   |
-| `decision_status = 'pending'`                         | "Pending"             | `secondary` |
-| `decision_status = 'deferred'`                        | "Deferred"            | `info`      |
-| `decision_status = 'rejected'`                        | "Rejected"            | `danger`    |
+CREATE TABLE public.rvm_illegal_attempt_log (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  created_at timestamptz NOT NULL DEFAULT now(),
+  actor_auth_id uuid,
+  actor_role text,
+  entity_type text NOT NULL,
+  entity_id uuid,
+  action text NOT NULL,
+  rule text NOT NULL,
+  reason text NOT NULL,
+  payload jsonb DEFAULT '{}'::jsonb,
+  request_id text
+);
 
+-- RLS
+ALTER TABLE public.rvm_illegal_attempt_log ENABLE ROW LEVEL SECURITY;
 
-This replaces the current two-badge pattern (DecisionStatusBadge + separate "Final" badge) with one consistent component.
+-- No direct INSERT from client
+CREATE POLICY illegal_log_no_insert ON public.rvm_illegal_attempt_log
+  FOR INSERT TO authenticated WITH CHECK (false);
 
-### Files modified:
+-- SELECT for governance roles only
+CREATE POLICY illegal_log_select ON public.rvm_illegal_attempt_log
+  FOR SELECT TO authenticated
+  USING (
+    has_any_role(ARRAY['chair_rvm', 'audit_readonly', 'admin_reporting'])
+    OR is_super_admin()
+  );
 
-- `src/components/rvm/StatusBadges.tsx` — Add `DecisionLifecycleBadge` component
-- `src/app/(admin)/rvm/meetings/[id]/page.tsx` — Use new badge in agenda table and sidebar
-- `src/app/(admin)/rvm/decisions/page.tsx` — Use new badge in list table
-- `src/components/rvm/DecisionManagementModal.tsx` — Use new badge in modal header
+-- No UPDATE/DELETE
+CREATE POLICY illegal_log_no_update ON public.rvm_illegal_attempt_log
+  FOR UPDATE TO authenticated USING (false);
 
----
-
-## Task 2 — Chair Gate Visual Segment
-
-### Change: Add "Chair Approval Gate" section in `DecisionManagementModal`
-
-Add a visually distinct section with a horizontal rule and header:
-
-```text
---- Chair Approval Gate ---
-Status: Awaiting Chair Approval / Approved by [name] at [timestamp]
-Finalized at: [timestamp] (if is_final)
+CREATE POLICY illegal_log_no_delete ON public.rvm_illegal_attempt_log
+  FOR DELETE TO authenticated USING (false);
 ```
 
-When not approved: Show "Awaiting Chair Approval" in muted text.
-When approved but not final: Show chair approval details + finalization button.
-When final: Show complete gate info as read-only.
+### Task 2 — Create `log_illegal_attempt()` SECURITY DEFINER Function
 
-### Files modified:
+This function uses `dblink` to insert the log in an autonomous transaction so it persists even when the calling trigger raises an exception.
 
-- `src/components/rvm/DecisionManagementModal.tsx` — Add Chair Gate visual section
+```sql
+CREATE OR REPLACE FUNCTION public.log_illegal_attempt(
+  p_entity_type text,
+  p_entity_id uuid,
+  p_action text,
+  p_rule text,
+  p_reason text,
+  p_payload jsonb DEFAULT '{}'::jsonb
+) RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO 'public'
+AS $$
+DECLARE
+  v_auth_id uuid;
+  v_role text;
+  v_conn_str text;
+BEGIN
+  -- Derive actor from auth context (cannot be spoofed)
+  v_auth_id := auth.uid();
 
----
+  -- Get first role
+  BEGIN
+    SELECT ur.role_code INTO v_role
+    FROM public.user_role ur
+    JOIN public.app_user au ON au.id = ur.user_id
+    WHERE au.auth_id = v_auth_id
+    LIMIT 1;
+  EXCEPTION WHEN OTHERS THEN
+    v_role := NULL;
+  END;
 
-## Task 3 — Role-Based Action Hardening
+  -- Autonomous insert via dblink (survives caller's RAISE EXCEPTION)
+  BEGIN
+    v_conn_str := format(
+      'dbname=%s port=%s host=%s user=%s password=%s',
+      current_database(), 
+      current_setting('port', true),
+      'localhost',
+      current_user,
+      '' -- service role connection
+    );
+    
+    PERFORM dblink_exec(
+      v_conn_str,
+      format(
+        'INSERT INTO public.rvm_illegal_attempt_log 
+         (actor_auth_id, actor_role, entity_type, entity_id, action, rule, reason, payload)
+         VALUES (%L, %L, %L, %L, %L, %L, %L, %L)',
+        v_auth_id, v_role, p_entity_type, p_entity_id, 
+        p_action, p_rule, p_reason, p_payload::text
+      )
+    );
+  EXCEPTION WHEN OTHERS THEN
+    -- Rule D: if logging fails, swallow — the block still happens
+    NULL;
+  END;
+END;
+$$;
+```
 
-### Current state (already correct):
+**Note:** If `dblink` is not available or the connection string cannot authenticate, the logging will silently fail (per Rule D) and the enforcement block still occurs. We will test this during Task 4. If `dblink` fails, we will document a fallback approach using application-layer error interception in the service layer.
 
-- `canFinalizeDecision`: `isSuperAdmin || hasRole('chair_rvm')` 
-- `canApproveDecision`: `isSuperAdmin || hasRole('chair_rvm')`
-- `canEditDecision`: `isSuperAdmin || hasRole('secretary_rvm')`
+### Task 3 — Integrate Logging into Existing Triggers
 
-Super admin seeing all buttons is correct — it mirrors the RLS `is_super_admin()` override. The UI matches backend enforcement. No changes needed.
+Update 5 trigger functions to call `log_illegal_attempt()` before each `RAISE EXCEPTION`. No changes to blocking logic.
 
-### Verification note:
+**3a. `enforce_decision_status_transition()`** — 2 block points:
 
-- Secretary can draft (edit text) but cannot finalize or change status — verified in `useUserRoles.ts`
-- Chair can change status and finalize — verified
-- Super admin has all permissions — mirrors RLS correctly
+```sql
+-- Before: RAISE EXCEPTION 'Cannot modify finalized decision...'
+-- After:
+PERFORM public.log_illegal_attempt(
+  'rvm_decision', OLD.id, 'UPDATE', 'DECISION_FINAL_LOCK',
+  'Attempted update on finalized decision',
+  jsonb_build_object('old', to_jsonb(OLD), 'new', to_jsonb(NEW))
+);
+RAISE EXCEPTION 'Cannot modify finalized decision (is_final = true)';
 
-No code changes for this task.
+-- Before: RAISE EXCEPTION 'Invalid decision transition...'
+-- After:
+PERFORM public.log_illegal_attempt(
+  'rvm_decision', OLD.id, 'UPDATE', 'DECISION_INVALID_TRANSITION',
+  format('Invalid transition: %s -> %s', OLD.decision_status, NEW.decision_status),
+  jsonb_build_object('old_status', OLD.decision_status, 'new_status', NEW.decision_status)
+);
+RAISE EXCEPTION 'Invalid decision transition: % -> %', OLD.decision_status, NEW.decision_status;
+```
 
----
+**3b. `enforce_chair_only_decision_status()`** — 1 block point:
 
-## Task 4 — Workflow Consistency Check
+```sql
+PERFORM public.log_illegal_attempt(
+  'rvm_decision', OLD.id, 'UPDATE', 'CHAIR_ONLY_STATUS',
+  'Non-chair user attempted decision_status change',
+  jsonb_build_object('old_status', OLD.decision_status, 'new_status', NEW.decision_status, 'actor_roles', v_roles)
+);
+RAISE EXCEPTION 'Only chair_rvm may change decision_status';
+```
 
-### Current state (already correct):
+**3c. `enforce_chair_approval_gate()`** — 1 block point:
 
-- `DossierStatusActions` maps: `decided -> [archived]` only
-- No backward transitions exist in the UI
-- This matches `status_transitions` table exactly
+```sql
+PERFORM public.log_illegal_attempt(
+  'rvm_decision', NEW.id, 'UPDATE', 'CHAIR_GATE_MISSING',
+  'Finalization attempted without chair approval',
+  jsonb_build_object('chair_approved_by', NEW.chair_approved_by, 'chair_approved_at', NEW.chair_approved_at)
+);
+RAISE EXCEPTION 'Decision cannot be finalized without chair approval';
+```
 
-### Enhancement:
+**3d. `enforce_document_lock_on_decision()`** — 1 block point:
 
-In the Dossier detail page, when status is `decided`, show a small info badge: "Decided — Linked to final decision" (if applicable). This provides visual clarity that the decided status is locked.
+```sql
+PERFORM public.log_illegal_attempt(
+  'rvm_document_version', NEW.id, 'INSERT', 'DOCUMENT_FINAL_LOCK',
+  'Document version insert blocked by finalized decision',
+  jsonb_build_object('document_id', NEW.document_id, 'decision_id', v_decision_id)
+);
+RAISE EXCEPTION 'Cannot add versions to document linked to finalized decision';
+```
 
-### Files modified:
+**3e. `enforce_dossier_status_transition()`** — 1 block point:
 
-- `src/app/(admin)/rvm/dossiers/[id]/page.tsx` — Add decided-state info text (minor)
+```sql
+PERFORM public.log_illegal_attempt(
+  'rvm_dossier', OLD.id, 'UPDATE', 'DOSSIER_INVALID_TRANSITION',
+  format('Invalid dossier transition: %s -> %s', OLD.status, NEW.status),
+  jsonb_build_object('old_status', OLD.status, 'new_status', NEW.status)
+);
+RAISE EXCEPTION 'Invalid dossier transition: % -> %', OLD.status, NEW.status;
+```
 
----
+**No recursion risk:** `rvm_illegal_attempt_log` has no triggers attached to it. The `log_audit_event()` trigger is only on domain tables, not on the log table.
 
-## Task 5 — Audit Visibility Check
+### Task 4 — Testing Strategy
 
-### Enhancement:
+We will use SQL-based tests via the Supabase SQL editor (or edge function tests) to verify:
 
-Add "finalized" to the `EVENT_TYPES` filter array in the audit page. The audit trigger logs finalization as an `updated` event with payload changes for `is_final`. Adding a filter helps locate these events.
+| Test Case | Expected Block | Expected Log Entry |
+|-----------|---------------|-------------------|
+| UPDATE `decision_text` on finalized decision | `RAISE EXCEPTION` | Row with rule=`DECISION_FINAL_LOCK` |
+| Secretary changes `decision_status` | `RAISE EXCEPTION` | Row with rule=`CHAIR_ONLY_STATUS` |
+| INSERT `rvm_document_version` when linked decision is final | `RAISE EXCEPTION` | Row with rule=`DOCUMENT_FINAL_LOCK` |
+| Dossier status regression `decided -> draft` | `RAISE EXCEPTION` | Row with rule=`DOSSIER_INVALID_TRANSITION` |
 
-### Files modified:
-
-- `src/app/(admin)/rvm/audit/page.tsx` — Add "finalized" filter option and highlight finalization events in the table
+If `dblink` autonomous transactions work: all 4 log entries will persist.  
+If `dblink` fails: enforcement still works (Rule D satisfied), and we document the gap.
 
 ---
 
 ## Files Created
 
-
-| File                                                | Purpose                         |
-| --------------------------------------------------- | ------------------------------- |
-| `Project Restore Points/RP-P10D-chair-gate-pre.md`  | Pre-verification restore point  |
-| `Project Restore Points/RP-P10D-chair-gate-post.md` | Post-verification restore point |
-
+| File | Purpose |
+|------|---------|
+| `Project Restore Points/RP-P11-illegal-attempts-pre.md` | Pre-implementation restore point |
+| `Project Restore Points/RP-P11-illegal-attempts-post.md` | Post-implementation restore point |
 
 ## Files Modified
 
+| File | Change |
+|------|--------|
+| New migration SQL | Table + function + trigger updates |
+| `docs/backend.md` | Phase 11 status line |
+| `docs/architecture.md` | Phase 11 note |
 
-| File                                             | Change                                                 |
-| ------------------------------------------------ | ------------------------------------------------------ |
-| `src/components/rvm/StatusBadges.tsx`            | Add `DecisionLifecycleBadge` component                 |
-| `src/components/rvm/DecisionManagementModal.tsx` | Chair Gate visual section + lifecycle badge            |
-| `src/app/(admin)/rvm/meetings/[id]/page.tsx`     | Use `DecisionLifecycleBadge` in agenda table + sidebar |
-| `src/app/(admin)/rvm/decisions/page.tsx`         | Use `DecisionLifecycleBadge` in list                   |
-| `src/app/(admin)/rvm/dossiers/[id]/page.tsx`     | Minor decided-state info text                          |
-| `src/app/(admin)/rvm/audit/page.tsx`             | Add finalization event filter                          |
-| `docs/backend.md`                                | Phase 10D status line                                  |
-| `docs/architecture.md`                           | Phase 10D note                                         |
+## No Files Modified (Frontend)
 
+Zero UI changes. Zero route changes. Zero component changes.
 
-GOVERNANCE NOTE – FINALIZATION EVENT CLASSIFICATION OBSERVATION
+## Scope Boundary
 
-Authority: Devmart Guardian Rules
-
-Scope: Phase 10D – Chair Gate Formalization Layer
-
-Mode: Governance Audit Refinement (Non-Blocking)
-
-Observation:
-
-The current audit mechanism logs decision finalization as a generic "updated" event, where the change in `is_final` and related fields is visible only inside the event_payload diff.
-
-There is no dedicated event_type such as:
-
-    event_type = 'finalized'
-
-Governance Assessment:
-
-- This is NOT a functional defect.
-
-- This does NOT weaken immutability enforcement.
-
-- This does NOT create a security gap.
-
-- Backend enforcement (triggers + RLS) remains fully valid.
-
-However:
-
-From a governance transparency perspective, having a distinct audit classification for finalization could improve:
-
-- Faster audit filtering
-
-- Clear legal traceability
-
-- Executive reporting clarity
-
-- Oversight readability during compliance reviews
-
-Recommendation (Future Hardening – Optional):
-
-In a later governance-hardening phase, consider:
-
-1) Introducing explicit `event_type = 'finalized'`
-
-2) Logging finalization as a separate audit entry
-
-3) Maintaining backward compatibility with existing audit structure
-
-Scope Clarification:
-
-This observation does NOT require rollback.
-
-This does NOT block Phase 10D approval.
-
-This does NOT require immediate schema change.
-
-Status: Informational Governance Hardening Note.  
-  
-Scope Boundary
-
-- Zero new database tables
-- Zero new enums
-- Zero RLS modifications
-- Zero trigger modifications
-- Zero navigation changes
+- Zero UI changes
+- Zero new workflow states
 - Zero new routes
-- UI clarity and workflow visibility only
+- Zero new dependencies (dblink is a core PostgreSQL extension)
+- Zero changes to existing allowed mutation flows
+- Only: logging blocked attempts
 
-## Governance Declaration
+## Risk Assessment
 
-**Target: FULLY FORMALIZED**
+| Risk | Mitigation |
+|------|-----------|
+| `dblink` not available on Supabase instance | Logging silently fails per Rule D; enforcement unaffected |
+| `dblink` connection string authentication | Test during Task 4; fallback to app-layer documented |
+| Recursive trigger loops | `rvm_illegal_attempt_log` has zero triggers — no recursion possible |
+| Performance overhead on blocked mutations | Minimal — only fires on exception path (rare events) |
 
-All changes are UI-layer visibility improvements. No backend enforcement changes.
+## Governance Declaration Target
+
+**FULLY IMPLEMENTED** — if `dblink` autonomous transactions work.  
+**PARTIALLY IMPLEMENTED** — if `dblink` fails, with enforcement intact and gap documented for future resolution.
