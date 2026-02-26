@@ -1,67 +1,118 @@
 
-
-# PHASE 9B — MODAL XL STANDARDIZATION
+# PHASE 9C — UI MICRO POLISH (DARKONE ASSET MAP ALIGNMENT)
 
 **Authority:** Devmart Guardian Rules
-**Classification:** Zero Business Logic Expansion
+**Classification:** Visual Consistency Hardening
+**Mode:** Zero Business Logic Expansion
 **Date:** 2026-02-26
 
 ---
 
-## Current State Analysis
+## AUDIT FINDINGS
 
-| Modal | `size` | `centered` | Header Pattern | Footer Pattern | Grid (`Row g-3`) |
-|---|---|---|---|---|---|
-| CreateDossierModal | `"lg"` | Yes | `Modal.Title` | Cancel + Primary w/ Spinner | Yes |
-| CreateMeetingModal | **(none — default/medium)** | Yes | `Modal.Title` | Cancel + Primary w/ Spinner | Yes |
-| CreateTaskModal | `"lg"` | Yes | `Modal.Title` | Cancel + Primary w/ Spinner | Yes |
+### 1) SPACING CONSISTENCY -- ALREADY ALIGNED
 
-**Only one change needed:** `CreateMeetingModal` line 60 — add `size="lg"`.
+All RVM pages use consistent patterns:
+- Cards: Bootstrap default `margin-bottom: $spacer` (1.5rem) from `_card.scss`
+- Filter/action cards use explicit `className="mb-3"` for consistent vertical rhythm
+- Container width: inherited from `AdminLayout` wrapper -- consistent across all pages
+- `Row` with `g-2` for filter rows, `g-3` for form grids -- consistent Darkone token usage
+- `PageTitle` uses `page-title-box` with `padding-bottom: $spacer` -- consistent
 
-CreateDossierModal and CreateTaskModal already fully conform to the standard. No spacing or layout normalization required — all three use identical `Row className="g-3"` with `Col md={6|12}` patterns, identical footer structure, and identical header structure.
+**No changes needed.**
+
+### 2) BUTTON ALIGNMENT -- ALREADY ALIGNED
+
+All edit forms (EditDossierForm, EditMeetingForm, EditTaskForm):
+- Use `d-flex justify-content-end gap-2 mt-3` pattern
+- Cancel (secondary, sm) on left, Save (primary, sm) on right
+- Spinner inside Submit button during loading
+- Consistent button height (all use `size="sm"`)
+
+All modal footers (CreateDossierModal, CreateMeetingModal, CreateTaskModal):
+- Bootstrap `Modal.Footer` default flex layout
+- Cancel (secondary) left, Submit (primary) right
+- Spinner inside Submit button during loading
+
+**No changes needed.**
+
+### 3) TABLE DENSITY -- ONE INCONSISTENCY FOUND
+
+| Page | `<thead>` class | `<Table>` props | `<CardBody>` padding |
+|------|-----------------|-----------------|----------------------|
+| Dossiers list | `table-light` | `responsive hover mb-0` | `p-0` |
+| Meetings list | `table-light` | `responsive hover mb-0` | `p-0` |
+| Meeting detail (agenda) | `table-light` | `responsive hover mb-0` | `p-0` |
+| Tasks list | `table-light` | `responsive hover mb-0` | `p-0` |
+| **Audit log** | **(none)** | `responsive hover mb-0` | `p-0` |
+
+**Finding:** `src/app/(admin)/rvm/audit/page.tsx` line 78 -- `<thead>` is missing the `table-light` class that all other tables use. This causes a visual inconsistency where the audit table header lacks the light gray background.
+
+**Fix:** Add `className="table-light"` to the `<thead>` element on line 78.
+
+### 4) FORM DENSITY AND RHYTHM -- ALREADY ALIGNED
+
+All forms use identical patterns:
+- `Row className="g-3"` for vertical/horizontal gutter (Darkone `$spacer` based)
+- `Form.Group` wrapping each field
+- `Form.Label` with `font-weight: $font-weight-medium` (from `_forms.scss`)
+- Bootstrap default `Form.Control` height (39px min-height for special types)
+- Section headings use `<h6 className="text-muted">` with `<hr />` separator (CreateDossierModal)
+- Edit forms use `<h6 className="mb-3">` for inline edit title
+
+**No changes needed.**
+
+### 5) CARD HEADER STRUCTURE -- ALREADY ALIGNED
+
+All data table cards use identical header pattern:
+- `CardHeader className="d-flex justify-content-between align-items-center"`
+- `h5 className="card-title mb-0"` for title (font-size: 1rem from `_card.scss`)
+- Action buttons/badges positioned top-right via flexbox
+- Detail page sidebar cards use `h6 className="card-title mb-0"` for smaller titles
+
+**No changes needed.**
 
 ---
 
-## Execution Plan
+## EXECUTION PLAN
 
-### Step 1: Create Restore Point
-- `Project Restore Points/RP-P9B-pre-modal-standardization.md`
+### Files Modified (Code) -- 1 file
 
-### Step 2: Fix CreateMeetingModal
-- **File:** `src/components/rvm/CreateMeetingModal.tsx`
-- **Line 60:** Change `<Modal show={show} onHide={handleClose} centered>` to `<Modal show={show} onHide={handleClose} size="lg" centered>`
+**`src/app/(admin)/rvm/audit/page.tsx`** (line 78)
+- Change: `<thead>` to `<thead className="table-light">`
 - This is a single-attribute addition. Zero logic changes.
 
-### Step 3: Verify Dossier and Task Modals
-- Both already use `size="lg"`, `centered`, consistent header/footer. No changes needed.
+### Files Created (Documentation) -- 3 files
 
-### Step 4: Create Documentation
-- `docs/Phase-9B-Modal-Standardization.md` — Standardization report with before/after
-- Update `docs/backend.md` — Add Phase 9B status line
-- Update `docs/architecture.md` — Add Phase 9B status line
+1. `Project Restore Points/RP-P9C-pre-ui-micro-polish.md`
+2. `Project Restore Points/RP-P9C-post-ui-micro-polish.md`
+3. `docs/Phase-9C-UI-Micro-Polish.md`
 
-### Step 5: Create Post Restore Point
-- `Project Restore Points/RP-P9B-post-modal-standardization.md`
+### Files Updated (Documentation) -- 2 files
+
+4. `docs/backend.md` -- Add Phase 9C status line
+5. `docs/architecture.md` -- Add Phase 9C status line
+
+### Build Order
+
+1. Create `RP-P9C-pre-ui-micro-polish.md`
+2. Fix audit page thead (1 attribute addition)
+3. Create `docs/Phase-9C-UI-Micro-Polish.md` with full audit report
+4. Update `docs/backend.md` and `docs/architecture.md`
+5. Create `RP-P9C-post-ui-micro-polish.md`
 
 ---
 
-## Files Modified (Code)
-- `src/components/rvm/CreateMeetingModal.tsx` — Add `size="lg"` prop (1 attribute, 1 line)
+## GOVERNANCE DECLARATION
 
-## Files Created (Documentation)
-- `Project Restore Points/RP-P9B-pre-modal-standardization.md`
-- `Project Restore Points/RP-P9B-post-modal-standardization.md`
-- `docs/Phase-9B-Modal-Standardization.md`
-
-## Files Updated (Documentation)
-- `docs/backend.md`
-- `docs/architecture.md`
-
-## Governance Declaration
-- Zero validation logic changes
-- Zero submit handler changes
-- Zero role gating changes
-- Zero schema/RLS/trigger changes
-- Zero new routes or modules
+- **1 file modified** (`audit/page.tsx`) -- single CSS class addition
+- Zero schema changes
+- Zero RLS changes
+- Zero new routes
+- Zero new modules or components
+- Zero hook changes
+- Zero validation changes
+- Zero business logic changes
 - Zero scope expansion
 
+All other audit areas (spacing, buttons, forms, card headers) are already Darkone-compliant and require no changes.
