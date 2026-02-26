@@ -2,46 +2,56 @@
 
 **Created:** 2026-02-26
 **Phase:** 11 — Illegal Attempt Logging Hardening
-**Type:** Post-implementation
+**Type:** Post-implementation (Corrected)
 
-## Changes Applied
+## Architecture Revision
 
-### Database Objects Created
-- Table: `rvm_illegal_attempt_log` — Forensic log for blocked mutation attempts
-- Extension: `dblink` (in `extensions` schema)
-- Function: `log_illegal_attempt()` — SECURITY DEFINER, uses dblink for autonomous transactions
+Initial implementation used dblink for autonomous transactions — **FAILED** on Supabase managed (localhost connections restricted).
 
-### Trigger Functions Updated (logging added before RAISE EXCEPTION)
-- `enforce_decision_status_transition()` — logs `DECISION_FINAL_LOCK`, `DECISION_INVALID_TRANSITION`
-- `enforce_chair_only_decision_status()` — logs `CHAIR_ONLY_STATUS`
-- `enforce_chair_approval_gate()` — logs `CHAIR_GATE_MISSING`
-- `enforce_document_lock_on_decision()` — logs `DOCUMENT_FINAL_LOCK`
-- `enforce_dossier_status_transition()` — logs `DOSSIER_INVALID_TRANSITION`
+**Corrected architecture:** RETURN NULL pattern
+- BEFORE triggers detect illegal conditions → INSERT log → RETURN NULL (blocks mutation)
+- No RAISE EXCEPTION = no rollback = log persists ✅
+- No dblink dependency = works on all Supabase instances ✅
 
-### RLS on rvm_illegal_attempt_log
-- INSERT: blocked for all authenticated users (only via SECURITY DEFINER function)
-- SELECT: `chair_rvm`, `audit_readonly`, `admin_reporting`, super_admin
-- UPDATE: blocked
-- DELETE: blocked
+## Database Objects
+
+### Created
+- Table: `rvm_illegal_attempt_log` — forensic log, RLS-protected
+- Function: `log_illegal_attempt()` — SECURITY DEFINER, direct INSERT
+- Function: `get_latest_violation()` — RPC for violation reason lookup
+
+### Modified (5 trigger functions → RETURN NULL pattern)
+- `enforce_decision_status_transition()` — logs DECISION_FINAL_LOCK, DECISION_INVALID_TRANSITION
+- `enforce_chair_only_decision_status()` — logs CHAIR_ONLY_STATUS
+- `enforce_chair_approval_gate()` — logs CHAIR_GATE_MISSING
+- `enforce_document_lock_on_decision()` — logs DOCUMENT_FINAL_LOCK
+- `enforce_dossier_status_transition()` — logs DOSSIER_INVALID_TRANSITION
+
+### Removed
+- dblink extension (not needed)
+
+## Frontend Changes
+- `src/utils/rls-error.ts` — Added `handleGuardedUpdate()`, `fetchViolationReason()`
+- `src/services/decisionService.ts` — Uses `handleGuardedUpdate()` for 3 update methods
+- `src/services/dossierService.ts` — Uses `handleGuardedUpdate()` for status update method
+
+## Test Evidence
+
+Edge function test results:
+- `log_count_before = 0`, `log_count_after = 2`
+- Decision final lock: blocked (0 rows), log persisted with rule=DECISION_FINAL_LOCK
+- Dossier regression: blocked (0 rows), log persisted with rule=DOSSIER_INVALID_TRANSITION
+- Original data unchanged (decision text and dossier status verified)
 
 ## Governance Declaration
 
-**PARTIALLY IMPLEMENTED**
+**FULLY WORKING**
 
-- Enforcement: 100% intact — all 5 triggers block illegal mutations as before
-- Logging: Best-effort — dblink autonomous transactions cannot connect on this managed Supabase instance (localhost connections restricted)
-- Rule D satisfied: logging failure does not weaken enforcement
-
-### Known Gap
-dblink cannot establish localhost connections on Supabase managed instances. The `log_illegal_attempt()` function silently swallows the connection failure. Log entries are NOT persisted when mutations are blocked.
-
-### Recommended Resolution (Future Phase)
-1. Store DB connection string in Supabase Vault and use it in `log_illegal_attempt()`
-2. OR implement app-layer error interception in service functions to log blocked attempts
-3. OR migrate to self-hosted Supabase/PostgreSQL where dblink localhost connections are permitted
-
-## Zero Changes
-- Zero UI changes
-- Zero workflow changes
-- Zero changes to existing allowed mutation flows
-- All enforcement logic unchanged
+| Area | Status |
+|------|--------|
+| Enforcement blocks | ✅ All 5 triggers block via RETURN NULL |
+| Log persistence | ✅ Logs persist after blocked mutations |
+| RLS on log table | ✅ No client INSERT/UPDATE/DELETE; governance SELECT only |
+| No dblink dependency | ✅ Removed |
+| Service layer error handling | ✅ Detects 0-row results, fetches violation reason |
+| Rule D satisfied | ✅ Logging failure does not weaken enforcement |

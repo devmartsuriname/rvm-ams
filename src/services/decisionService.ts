@@ -1,5 +1,6 @@
 import { supabase } from '@/integrations/supabase/client'
 import type { Tables, TablesInsert, TablesUpdate, Enums } from '@/integrations/supabase/types'
+import { handleGuardedUpdate } from '@/utils/rls-error'
 
 export type Decision = Tables<'rvm_decision'>
 export type DecisionInsert = TablesInsert<'rvm_decision'>
@@ -55,30 +56,26 @@ export const decisionService = {
    * RLS enforces: secretary_rvm can update when not final
    */
   async updateDecision(id: string, data: DecisionUpdate) {
-    const { data: updated, error } = await supabase
+    const result = await supabase
       .from('rvm_decision')
       .update(data)
       .eq('id', id)
       .select()
-      .single()
 
-    if (error) throw error
-    return updated
+    return handleGuardedUpdate(result, 'rvm_decision', id)
   },
 
   /**
    * Update decision status
    */
   async updateDecisionStatus(id: string, status: DecisionStatus) {
-    const { data, error } = await supabase
+    const result = await supabase
       .from('rvm_decision')
       .update({ decision_status: status })
       .eq('id', id)
       .select()
-      .single()
 
-    if (error) throw error
-    return data
+    return handleGuardedUpdate(result, 'rvm_decision', id)
   },
 
   /**
@@ -136,7 +133,7 @@ export const decisionService = {
    * This method is for RECORDING that approval was given.
    */
   async recordChairApproval(id: string, chairUserId: string) {
-    const { data, error } = await supabase
+    const result = await supabase
       .from('rvm_decision')
       .update({
         chair_approved_by: chairUserId,
@@ -144,9 +141,7 @@ export const decisionService = {
       })
       .eq('id', id)
       .select()
-      .single()
 
-    if (error) throw error
-    return data
+    return handleGuardedUpdate(result, 'rvm_decision', id)
   },
 }

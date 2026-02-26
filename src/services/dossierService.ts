@@ -1,5 +1,6 @@
 import { supabase } from '@/integrations/supabase/client'
 import type { Tables, TablesInsert, TablesUpdate, Enums } from '@/integrations/supabase/types'
+import { handleGuardedUpdate } from '@/utils/rls-error'
 
 export type Dossier = Tables<'rvm_dossier'>
 export type DossierInsert = TablesInsert<'rvm_dossier'>
@@ -154,15 +155,13 @@ export const dossierService = {
    * Validates state transition at application level
    */
   async updateDossierStatus(id: string, status: DossierStatus) {
-    const { data: updated, error } = await supabase
+    const result = await supabase
       .from('rvm_dossier')
       .update({ status })
       .eq('id', id)
       .select()
-      .single()
 
-    if (error) throw error
-    return updated
+    return handleGuardedUpdate(result, 'rvm_dossier', id)
   },
 
   /**
