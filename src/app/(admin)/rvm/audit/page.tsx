@@ -75,7 +75,7 @@ const AuditLogPage = () => {
           )}
           {events && events.length > 0 && (
             <Table responsive hover className="mb-0">
-              <thead>
+              <thead className="table-light">
                 <tr>
                   <th style={{ width: 40 }}></th>
                   <th>Occurred At</th>

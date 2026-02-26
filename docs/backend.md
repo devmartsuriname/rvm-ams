@@ -18,6 +18,7 @@
 | 8 | Audit Finalization | CLOSED |
 | 9 | UI Stability & Consistency Hardening | CLOSED |
 | 9B | Modal XL Standardization | CLOSED |
+| 9C | UI Micro Polish (Darkone Alignment) | CLOSED |
 
 ## Database Architecture
 
