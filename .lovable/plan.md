@@ -1,182 +1,230 @@
-# Phase 10B — Navigation Structure Correction: Standalone Decisions Module
+# Phase 10C — Decision Finalization Hard Lock Verification
 
 **Authority:** Devmart Guardian Rules
-**Mode:** Frontend Only (Navigation + New List Page)
-**Scope:** Sidebar item + route + list page for Decisions
-
----
-
-## Rationale
-
-Decisions are a legally distinct entity (`rvm_decision`) with independent governance (Chair approval gate, finality flag, immutability). They must not be visually conflated with Meetings in navigation. This correction adds a standalone "Decisions" sidebar entry and list page.
+**Mode:** Backend Enforcement Verification
+**Scope:** Immutability + Workflow Lock Discipline
 
 ---
 
 ## Pre-Condition
 
-Create `Project Restore Points/RP-P10B-nav-structure-pre.md` before any changes.
+Create `Project Restore Points/RP-P10C-final-lock-pre.md` before any changes.
 
 ---
 
-## Task 1 — Revert Label Merge
+## Current Backend Enforcement Assessment
 
-Ensure `src/assets/data/menu-items.ts` line 28 reads `"Meetings"` (not `"Meetings & Decisions"`). Based on current file state, this is already correct -- no change needed.
+Analysis of existing triggers, RLS policies, and status transitions reveals that **all five enforcement vectors are already implemented at the database level**. No new triggers or RLS changes are required.
+
+### Enforcement Vector 1 — Decision Update Block (is_final = true)
+
+**Status: ENFORCED**
+
+Trigger: `trg_enforce_decision_status_transition` calls `enforce_decision_status_transition()`:
+
+```text
+IF OLD.is_final = true THEN
+  RAISE EXCEPTION 'Cannot modify finalized decision (is_final = true)';
+END IF;
+```
+
+This blocks ALL updates (text, status, any field) when `is_final = true`. This is a BEFORE UPDATE trigger, meaning no mutation can proceed.
+
+Additionally, RLS on `rvm_decision` UPDATE restricts secretary access:
+
+```text
+(has_role('secretary_rvm') AND is_final = false) OR has_role('chair_rvm') OR is_super_admin()
+```
+
+Secretary is blocked at RLS level. Chair/super_admin pass RLS but are blocked by the trigger. Double enforcement.
+
+### Enforcement Vector 2 — Dossier Status Regression Block
+
+**Status: ENFORCED**
+
+The `status_transitions` table for entity_type `dossier` contains:
+
+```text
+decided -> archived  (ONLY valid transition from 'decided')
+```
+
+No backward path exists (no `decided -> in_preparation`, no `decided -> scheduled`, no `decided -> draft`). The `enforce_dossier_status_transition()` trigger validates against this table, blocking any regression attempt.
+
+Additionally, the RLS UPDATE policy on `rvm_dossier` blocks updates when status is `decided`, `archived`, or `cancelled`:
+
+```text
+status <> ALL (ARRAY['decided', 'archived', 'cancelled'])
+```
+
+Double enforcement: RLS blocks the update, and the trigger blocks invalid transitions.
+
+### Enforcement Vector 3 — Document Version Lock
+
+**Status: ENFORCED**
+
+Trigger: `enforce_document_lock_on_decision` on `rvm_document_version` BEFORE INSERT:
+
+```text
+IF v_is_final = true THEN
+  RAISE EXCEPTION 'Cannot add versions to document linked to finalized decision';
+END IF;
+```
+
+This prevents new document versions when the linked decision is finalized. Document deletion is already blocked by RLS (no DELETE policy exists on `rvm_document_version`).
+
+### Enforcement Vector 4 — Chair Approval Gate
+
+**Status: ENFORCED**
+
+Trigger: `enforce_chair_approval_gate` on `rvm_decision` BEFORE UPDATE:
+
+```text
+IF NEW.is_final = true AND OLD.is_final = false THEN
+  IF NEW.chair_approved_at IS NULL OR NEW.chair_approved_by IS NULL THEN
+    RAISE EXCEPTION 'Decision cannot be finalized without chair approval';
+  END IF;
+END IF;
+```
+
+Finalization is impossible without chair approval fields being populated.
+
+### Enforcement Vector 5 — Chair-Only Status Changes
+
+**Status: ENFORCED**
+
+Trigger: `trg_enforce_chair_only_decision_status` calls `enforce_chair_only_decision_status()`:
+
+```text
+IF OLD.decision_status IS DISTINCT FROM NEW.decision_status THEN
+  -- Only chair_rvm or super_admin can change status
+END IF;
+```
 
 ---
 
-## Task 2 — Add Sidebar Item
+## Task 1 — No Backend Changes Required
 
-Add new entry in `src/assets/data/menu-items.ts` between Meetings and Tasks:
-
-- **key:** `rvm-decisions`
-- **label:** `Decisions`
-- **icon:** `bx:check-circle` (governance-consistent Boxicons icon, already in Darkone asset map)
-- **url:** `/rvm/decisions`
+All enforcement is already at the database level via triggers and RLS. No UI-only protection gaps exist.
 
 ---
 
-## Task 3 — Add Decision Service Method
+## Task 2 — Negative Test Execution
 
-Add `fetchAllDecisions()` to `src/services/decisionService.ts`:
+Execute the following SQL-based negative tests to confirm enforcement:
 
-- Selects all decisions with joined agenda item and dossier info
-- Ordered by `created_at` descending
-- Same join pattern as existing `fetchDecisionsByMeeting`
+1. **Attempt update decision_text after finalization** -- expects exception
+2. **Attempt change decision_status after finalization** -- expects exception
+3. **Attempt add document version to finalized decision** -- expects exception
+4. **Attempt change dossier status from decided to in_preparation** -- expects exception (no valid transition)
 
----
-
-## Task 4 — Add Hook Query
-
-Add `useAllDecisions()` to `src/hooks/useDecisions.ts`:
-
-- Uses query key `['decisions', 'all']`
-- Calls `decisionService.fetchAllDecisions()`
+These tests will be run against the live database using test data (if available) or documented as enforcement confirmation based on trigger/RLS analysis.
 
 ---
 
-## Task 5 — Create Decisions List Page
+## Task 3 — Audit Confirmation
 
-Create `src/app/(admin)/rvm/decisions/page.tsx`:
-
-- Mirrors the Tasks list page pattern (Card, Table, filters, state components)
-- Columns: Decision Text (truncated), Meeting, Dossier, Status, Final, Created
-- Status filter dropdown (pending, approved, deferred, rejected)
-- Uses `DecisionStatusBadge` from `StatusBadges.tsx`
-- Final column: Badge showing "Final" or "Draft"
-- Links to parent meeting detail page (where full decision management lives)
-- `table-light` thead class per Phase 9C standard
-- No create/edit actions on this page (those remain in Meeting Detail)
-- Role gating: all authorized roles can view (read-only list)
-
----
-
-## Task 6 — Register Route
-
-Add to `src/routes/index.tsx`:
-
-- Lazy import: `const DecisionList = lazy(() => import('@/app/(admin)/rvm/decisions/page'))`
-- Route: `{ path: '/rvm/decisions', name: 'Decisions', element: <DecisionList /> }`
-
----
-
-## Task 7 — Documentation & Restore Points
-
-- Create `RP-P10B-nav-structure-pre.md`
-- Create `RP-P10B-nav-structure-post.md`
-- Update `docs/architecture.md` with navigation correction note
+The `audit_rvm_decision` trigger (AFTER INSERT OR UPDATE) logs all mutation attempts via `log_audit_event()`. Failed mutations (blocked by BEFORE UPDATE triggers) do not reach the AFTER trigger, meaning they are blocked before audit logging. This is correct behavior: illegal mutations are rejected, not silently logged.
 
 ---
 
 ## Files Created
 
 
-| File                                                   | Purpose                        |
-| ------------------------------------------------------ | ------------------------------ |
-| `src/app/(admin)/rvm/decisions/page.tsx`               | Standalone Decisions list page |
-| `Project Restore Points/RP-P10B-nav-structure-pre.md`  | Pre-change restore point       |
-| `Project Restore Points/RP-P10B-nav-structure-post.md` | Post-change restore point      |
+| File                                                | Purpose                         |
+| --------------------------------------------------- | ------------------------------- |
+| `Project Restore Points/RP-P10C-final-lock-pre.md`  | Pre-verification restore point  |
+| `Project Restore Points/RP-P10C-final-lock-post.md` | Post-verification restore point |
 
 
 ## Files Modified
 
 
-| File                              | Change                            |
-| --------------------------------- | --------------------------------- |
-| `src/assets/data/menu-items.ts`   | Add `rvm-decisions` sidebar entry |
-| `src/routes/index.tsx`            | Add `/rvm/decisions` route        |
-| `src/services/decisionService.ts` | Add `fetchAllDecisions()` method  |
-| `src/hooks/useDecisions.ts`       | Add `useAllDecisions()` hook      |
-| `docs/architecture.md`            | Navigation correction note        |
+| File                   | Change                                  |
+| ---------------------- | --------------------------------------- |
+| `docs/backend.md`      | Phase 10C status line                   |
+| `docs/architecture.md` | Phase 10C enforcement verification note |
 
 
-GOVERNANCE NOTE – DATA ACCESS SAFEGUARD (Phase 10B)
+## Scope Boundary
 
-Authority: Devmart Guardian Rules  
+- Zero new triggers
+- Zero RLS modifications
+- Zero schema changes
+- Zero new entities
+- Zero UI changes
+- Zero route changes
+- Verification and documentation only
 
-Scope: Decision Service Implementation  
+---
 
-Mode: Backend Access Discipline (No Schema Changes)
+**GOVERNANCE NOTE – ILLEGAL MUTATION ATTEMPT LOGGING OBSERVATION**
 
-Clarification for Task 3 – fetchAllDecisions()
+Authority: Devmart Guardian Rules
 
-When implementing fetchAllDecisions(), the following hard governance constraints apply:
+Scope: Phase 10C – Decision Immutability Enforcement
 
-1. RLS Integrity
+Mode: Governance Hardening Observation (Non-Blocking)
 
-   - The query must fully respect existing Row-Level Security.
+Observation:
 
-   - No RLS bypass patterns.
+Current implementation correctly blocks illegal mutations using BEFORE UPDATE / BEFORE INSERT triggers. 
 
-   - No elevated service role usage.
+However:
 
-   - No direct admin-level data access.
+Failed mutation attempts (blocked by BEFORE triggers) do NOT reach the AFTER INSERT/UPDATE audit trigger. As a result, rejected mutation attempts are not logged in the audit_event table.
 
-2. Select Discipline
+Governance Assessment:
 
-   - Avoid unrestricted `.select('*')` patterns.
+- This is NOT a functional defect.
 
-   - Only select fields required for the Decisions list page.
+- This is NOT a security vulnerability.
 
-   - Follow the same join pattern as existing `fetchDecisionsByMeeting`.
+- Enforcement remains legally and technically valid.
 
-3. Join Scope
+- Immutability is correctly enforced at database level.
 
-   - Only join:
+However, from a governance-hardening perspective:
 
-     - rvm_agenda_item (minimal fields)
+Logging failed mutation attempts could improve:
 
-     - rvm_dossier (minimal fields)
+- Security monitoring
 
-   - Do not introduce new entity joins.
+- Forensic traceability
 
-   - Do not expose confidential document or audit structures.
+- Abuse detection
 
-4. No Backend Mutation
+- Administrative oversight transparency
 
-   - Zero schema changes.
+Recommendation (Future Phase – Optional Hardening):
 
-   - Zero RLS modifications.
+Consider introducing one of the following in a future hardening phase:
 
-   - Zero trigger or policy adjustments.
+1) Dedicated exception logging function inside BEFORE trigger
 
-Purpose:
+2) SECURITY DEFINER logging function before RAISE EXCEPTION
 
-This note ensures that the standalone Decisions list page remains a read-only governance-compliant view, aligned with:
+3) Centralized illegal-attempt audit table
 
-- ERD entity boundaries
+Scope Clarification:
 
-- RLS role enforcement
+This observation does NOT require rollback.
 
-- Decision immutability principles
+This does NOT block Phase 10C approval.
 
-Status: Mandatory safeguard for implementation.  
+This does NOT require immediate implementation.
+
+Status: Informational Governance Hardening Note.  
   
-Scope Boundary
+**Governance Declaration**
 
-- Zero DB schema changes
-- Zero RLS changes
-- Zero trigger modifications
-- Zero new dependencies
-- No workflow changes
-- Bootstrap 5 + React-Bootstrap only
-- Boxicons icon only (`bx:check-circle`)
+Based on analysis of all 5 existing BEFORE UPDATE/INSERT triggers and RLS policies:
+
+**Status: FULLY ENFORCED**
+
+All immutability constraints are enforced at the database level. No UI-only protection gaps exist. The system prevents:
+
+1. Any field update on finalized decisions (trigger)
+2. Dossier regression from `decided` (status_transitions + RLS)
+3. New document versions on finalized decisions (trigger)
+4. Finalization without chair approval (trigger)
+5. Non-chair status changes (trigger + RLS)
