@@ -47,7 +47,7 @@ Database:
 
 ## Phase Completion Status
 
-All 9 phases + Phase 9B + Phase 9C CLOSED as of 2026-02-26. See `docs/Phase-9-UI-Stability-Report.md`, `docs/Phase-9B-Modal-Standardization.md`, and `docs/Phase-9C-UI-Micro-Polish.md`.
+All 9 phases + Phase 9B + Phase 9C CLOSED as of 2026-02-26. Phase 10 (Decision UI & Chair Gate) in PLANNING state. See `docs/Phase-10-Planning-Decision-Chair-Gate.md`.
 
 ## Implemented Modules
 
