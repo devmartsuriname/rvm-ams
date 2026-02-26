@@ -47,7 +47,7 @@ Database:
 
 ## Phase Completion Status
 
-All 9 phases + Phase 9B + Phase 9C CLOSED as of 2026-02-26. Phase 10 (Decision UI & Chair Gate) in PLANNING state. See `docs/Phase-10-Planning-Decision-Chair-Gate.md`.
+All 9 phases + Phase 9B + Phase 9C CLOSED as of 2026-02-26. Phase 10A (Decision Status Hardening — Backend) CLOSED. Phase 10B (Decision UI) pending. See `docs/Phase-10-Planning-Decision-Chair-Gate.md`.
 
 ## Implemented Modules
 

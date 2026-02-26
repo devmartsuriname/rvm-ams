@@ -31,6 +31,12 @@ export function useUserRoles() {
     canEditTask: isSuperAdmin || hasAnyRole(['secretary_rvm', 'deputy_secretary']),
     canTransitionTask: isSuperAdmin || hasAnyRole(['secretary_rvm', 'deputy_secretary']),
 
+    // Decision permissions
+    canCreateDecision: isSuperAdmin || hasAnyRole(['secretary_rvm', 'admin_reporting']),
+    canEditDecision: isSuperAdmin || hasRole('secretary_rvm'),
+    canApproveDecision: isSuperAdmin || hasRole('chair_rvm'),
+    canFinalizeDecision: isSuperAdmin || hasRole('chair_rvm'),
+
     // Audit permissions
     canViewAudit: isSuperAdmin || hasRole('audit_readonly'),
 
