@@ -17,6 +17,7 @@
 | 7 | Reporting & Dashboards | CLOSED |
 | 8 | Audit Finalization | CLOSED |
 | 9 | UI Stability & Consistency Hardening | CLOSED |
+| 9B | Modal XL Standardization | CLOSED |
 
 ## Database Architecture
 

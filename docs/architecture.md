@@ -47,7 +47,7 @@ Database:
 
 ## Phase Completion Status
 
-All 9 phases CLOSED as of 2026-02-26. See `docs/Phase-9-UI-Stability-Report.md` for Phase 9 details.
+All 9 phases + Phase 9B CLOSED as of 2026-02-26. See `docs/Phase-9-UI-Stability-Report.md` and `docs/Phase-9B-Modal-Standardization.md`.
 
 ## Implemented Modules
 

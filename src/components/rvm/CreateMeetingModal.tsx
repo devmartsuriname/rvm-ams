@@ -57,7 +57,7 @@ export default function CreateMeetingModal({ show, onHide }: Props) {
   }
 
   return (
-    <Modal show={show} onHide={handleClose} centered>
+    <Modal show={show} onHide={handleClose} size="lg" centered>
       <Modal.Header closeButton>
         <Modal.Title>Create New Meeting</Modal.Title>
       </Modal.Header>
