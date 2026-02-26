@@ -20,6 +20,8 @@
 | 9B | Modal XL Standardization | CLOSED |
 | 9C | UI Micro Polish (Darkone Alignment) | CLOSED |
 | 10A | Decision Status Hardening (Backend) | CLOSED |
+| 10B | Navigation Structure Correction | CLOSED |
+| 10C | Decision Finalization Hard Lock Verification | CLOSED |
 
 ## Database Architecture
 
