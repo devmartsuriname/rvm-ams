@@ -23,7 +23,7 @@
 | 10B | Navigation Structure Correction | CLOSED |
 | 10C | Decision Finalization Hard Lock Verification | CLOSED |
 | 10D | Chair Gate Formalization Layer (UI Visibility) | CLOSED |
-| 11 | Illegal Attempt Logging Hardening | FULLY WORKING |
+| 11 | Illegal Attempt Logging Hardening | CLOSED |
 
 ## Database Architecture
 
@@ -61,7 +61,7 @@
 - Status transitions enforced at database level
 - Immutability gates prevent edits on finalized entities
 
-## Phase 11 — Illegal Attempt Logging
+## Phase 11 — Illegal Attempt Logging (CLOSED)
 
 - Table `rvm_illegal_attempt_log` created for forensic logging of blocked mutations
 - Function `log_illegal_attempt()` (SECURITY DEFINER) integrated into 5 enforcement triggers
@@ -71,3 +71,11 @@
 - `get_latest_violation()` RPC provides violation reason lookup
 - Enforcement is 100% intact, logging is FULLY WORKING
 - **Verified:** 2 blocked mutations produced 2 persistent log entries with full payload
+
+### Accepted Limitation (Phase 11)
+
+- **Silent rejection semantics:** Enforcement uses RETURN NULL instead of RAISE EXCEPTION. Clients observe "0 rows affected" on blocked mutations rather than an exception.
+- This is an **intentional governance trade-off** to ensure persistent forensic logging on managed Supabase (where autonomous transactions via dblink are not available).
+- Enforcement remains at the database level; logging persists reliably in all cases.
+- The application service layer uses `handleGuardedUpdate()` + `get_latest_violation()` RPC to surface violation reasons to users.
+- **Future enhancement (optional, deferred):** Unify user-facing error semantics via standardized service-layer wrappers for all guarded entities.

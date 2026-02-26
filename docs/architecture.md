@@ -47,7 +47,7 @@ Database:
 
 ## Phase Completion Status
 
-All 9 phases + Phase 9B + Phase 9C CLOSED as of 2026-02-26. Phase 10A–10D CLOSED. Phase 11 (Illegal Attempt Logging Hardening) FULLY WORKING — RETURN NULL pattern replaces dblink; `rvm_illegal_attempt_log` persists forensic logs; 5 enforcement triggers updated; service layer detects silent rejections via `handleGuardedUpdate()`.
+All 9 phases + Phase 9B + Phase 9C CLOSED as of 2026-02-26. Phase 10A–10D CLOSED. Phase 11 (Illegal Attempt Logging Hardening) CLOSED — RETURN NULL pattern; `rvm_illegal_attempt_log` persists forensic logs; 5 enforcement triggers updated; service layer detects silent rejections via `handleGuardedUpdate()`. **Accepted limitation:** silent rejection semantics (RETURN NULL, not RAISE EXCEPTION) — intentional trade-off for persistent logging on managed Supabase.
 
 ## Implemented Modules
 
