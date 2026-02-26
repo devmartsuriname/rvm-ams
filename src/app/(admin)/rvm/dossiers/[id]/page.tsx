@@ -261,6 +261,13 @@ const DossierDetailPage = () => {
                   <span className="text-muted">Status</span>
                   <DossierStatusBadge status={dossier.status} />
                 </li>
+                {dossier.status === 'decided' && (
+                  <li className="py-1 border-bottom">
+                    <small className="text-success">
+                      <strong>Decided</strong> — Linked to a finalized decision. Status locked.
+                    </small>
+                  </li>
+                )}
                 <li className="d-flex justify-content-between py-1">
                   <span className="text-muted">Urgency</span>
                   <UrgencyBadge urgency={dossier.urgency} />

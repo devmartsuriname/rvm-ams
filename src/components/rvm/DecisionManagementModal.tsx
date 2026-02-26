@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Modal, Badge, Spinner } from 'react-bootstrap'
 import { useDecision, useUpdateDecision } from '@/hooks/useDecisions'
 import { useUserRoles } from '@/hooks/useUserRoles'
-import { DecisionStatusBadge } from '@/components/rvm/StatusBadges'
+import { DecisionLifecycleBadge } from '@/components/rvm/StatusBadges'
 import EditDecisionForm from '@/components/rvm/EditDecisionForm'
 import DecisionStatusActions from '@/components/rvm/DecisionStatusActions'
 import ChairApprovalActions from '@/components/rvm/ChairApprovalActions'
@@ -59,9 +59,8 @@ export default function DecisionManagementModal({ show, onHide, agendaItemId, ag
             {/* Status header */}
             <div className="d-flex justify-content-between align-items-center mb-3">
               <div className="d-flex align-items-center gap-2">
-                <span className="fw-medium">Status:</span>
-                <DecisionStatusBadge status={decision.decision_status} />
-                {isFinal && <Badge bg="dark">Final</Badge>}
+                <span className="fw-medium">Lifecycle:</span>
+                <DecisionLifecycleBadge status={decision.decision_status} isFinal={isFinal} />
               </div>
               {showEditButton && (
                 <button className="btn btn-outline-primary btn-sm" onClick={() => setEditMode(true)}>
@@ -84,16 +83,48 @@ export default function DecisionManagementModal({ show, onHide, agendaItemId, ag
               </div>
             )}
 
-            {/* Chair approval info (read-only) */}
-            {decision.chair_approved_by && (
-              <div className="mb-3">
-                <small className="text-muted">
-                  Chair approved at: {decision.chair_approved_at
-                    ? new Date(decision.chair_approved_at).toLocaleString('nl-NL')
-                    : '-'}
-                </small>
-              </div>
-            )}
+            {/* ── Chair Approval Gate ── */}
+            <hr className="my-3" />
+            <div className="mb-3">
+              <h6 className="fw-semibold text-uppercase small text-muted mb-2">
+                Chair Approval Gate
+              </h6>
+              {isFinal ? (
+                <div className="border rounded p-3 bg-success bg-opacity-10">
+                  <ul className="list-unstyled mb-0 small">
+                    <li className="d-flex justify-content-between py-1">
+                      <span className="text-muted">Chair Approved By</span>
+                      <span className="font-monospace">{decision.chair_approved_by ? decision.chair_approved_by.substring(0, 8) + '…' : '—'}</span>
+                    </li>
+                    <li className="d-flex justify-content-between py-1">
+                      <span className="text-muted">Chair Approved At</span>
+                      <span>{decision.chair_approved_at ? new Date(decision.chair_approved_at).toLocaleString('nl-NL') : '—'}</span>
+                    </li>
+                    <li className="d-flex justify-content-between py-1">
+                      <span className="text-muted">Status</span>
+                      <Badge bg="success">Finalized</Badge>
+                    </li>
+                  </ul>
+                </div>
+              ) : decision.chair_approved_by ? (
+                <div className="border rounded p-3">
+                  <ul className="list-unstyled mb-0 small">
+                    <li className="d-flex justify-content-between py-1">
+                      <span className="text-muted">Chair Approved By</span>
+                      <span className="font-monospace">{decision.chair_approved_by.substring(0, 8)}…</span>
+                    </li>
+                    <li className="d-flex justify-content-between py-1">
+                      <span className="text-muted">Chair Approved At</span>
+                      <span>{decision.chair_approved_at ? new Date(decision.chair_approved_at).toLocaleString('nl-NL') : '—'}</span>
+                    </li>
+                  </ul>
+                </div>
+              ) : (
+                <div className="border rounded p-3 text-muted small">
+                  Awaiting Chair Approval
+                </div>
+              )}
+            </div>
 
             {/* Chair status transition actions */}
             {canApproveDecision && !isFinal && (

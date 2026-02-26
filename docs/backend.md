@@ -22,6 +22,7 @@
 | 10A | Decision Status Hardening (Backend) | CLOSED |
 | 10B | Navigation Structure Correction | CLOSED |
 | 10C | Decision Finalization Hard Lock Verification | CLOSED |
+| 10D | Chair Gate Formalization Layer (UI Visibility) | CLOSED |
 
 ## Database Architecture
 

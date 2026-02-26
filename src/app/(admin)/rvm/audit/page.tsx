@@ -8,7 +8,7 @@ import { format } from 'date-fns'
 import IconifyIcon from '@/components/wrapper/IconifyIcon'
 
 const ENTITY_TYPES = ['rvm_dossier', 'rvm_meeting', 'rvm_task', 'rvm_agenda_item', 'rvm_decision', 'rvm_document', 'rvm_document_version']
-const EVENT_TYPES = ['created', 'updated', 'status_changed', 'deleted']
+const EVENT_TYPES = ['created', 'updated', 'status_changed', 'deleted', 'finalized']
 
 const AuditLogPage = () => {
   const { canViewAudit } = useUserRoles()
@@ -89,11 +89,18 @@ const AuditLogPage = () => {
               <tbody>
                 {events.map(evt => {
                   const isExpanded = expandedId === evt.id
+                  const isFinalizationEvent = evt.entity_type === 'rvm_decision' &&
+                    evt.event_type === 'updated' &&
+                    evt.event_payload &&
+                    typeof evt.event_payload === 'object' &&
+                    'new' in (evt.event_payload as Record<string, unknown>) &&
+                    (evt.event_payload as any).new?.is_final === true
                   return (
                     <React.Fragment key={evt.id}>
                       <tr
                         onClick={() => setExpandedId(isExpanded ? null : evt.id)}
                         style={{ cursor: 'pointer' }}
+                        className={isFinalizationEvent ? 'table-success' : ''}
                       >
                         <td>
                           <IconifyIcon
@@ -108,7 +115,13 @@ const AuditLogPage = () => {
                         <td className="font-monospace small" title={evt.entity_id}>
                           {evt.entity_id.substring(0, 8)}…
                         </td>
-                        <td><span className="badge bg-primary-subtle text-primary">{evt.event_type}</span></td>
+                        <td>
+                          {isFinalizationEvent ? (
+                            <span className="badge bg-success">finalized</span>
+                          ) : (
+                            <span className="badge bg-primary-subtle text-primary">{evt.event_type}</span>
+                          )}
+                        </td>
                         <td className="font-monospace small">
                           {evt.actor_user_id ? evt.actor_user_id.substring(0, 8) + '…' : 'System'}
                         </td>

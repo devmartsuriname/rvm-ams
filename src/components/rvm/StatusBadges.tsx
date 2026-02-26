@@ -95,3 +95,29 @@ export function ServiceTypeBadge({ type }: { type: 'proposal' | 'missive' | null
     </Badge>
   )
 }
+
+/**
+ * Unified decision lifecycle badge.
+ * Renders one badge representing the full lifecycle state of a decision.
+ *
+ * States:
+ *  - Finalized (is_final = true) → success
+ *  - Awaiting Chair Gate (approved but not final) → warning
+ *  - Pending → secondary
+ *  - Deferred → info
+ *  - Rejected → danger
+ */
+export function DecisionLifecycleBadge({
+  status,
+  isFinal,
+}: {
+  status: DecisionStatus | null | undefined
+  isFinal: boolean | null | undefined
+}) {
+  if (isFinal) return <Badge bg="success">Finalized</Badge>
+  if (status === 'approved') return <Badge bg="warning" text="dark">Awaiting Chair Gate</Badge>
+  if (status === 'pending') return <Badge bg="secondary">Pending</Badge>
+  if (status === 'deferred') return <Badge bg="info">Deferred</Badge>
+  if (status === 'rejected') return <Badge bg="danger">Rejected</Badge>
+  return null
+}

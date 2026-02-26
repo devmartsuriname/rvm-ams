@@ -4,7 +4,7 @@ import PageTitle from '@/components/PageTitle'
 import { Card, CardBody, CardHeader, Table, Form, Row, Col, Button, Badge } from 'react-bootstrap'
 import { Link } from 'react-router-dom'
 import { useAllDecisions } from '@/hooks/useDecisions'
-import { DecisionStatusBadge } from '@/components/rvm/StatusBadges'
+import { DecisionLifecycleBadge } from '@/components/rvm/StatusBadges'
 import { EmptyState, LoadingState, ErrorState } from '@/components/rvm/StateComponents'
 import type { Enums } from '@/integrations/supabase/types'
 
@@ -88,8 +88,7 @@ const DecisionListPage = () => {
                   <th>Decision Text</th>
                   <th>Dossier</th>
                   <th>Meeting</th>
-                  <th>Status</th>
-                  <th>Final</th>
+                  <th>Lifecycle</th>
                   <th>Created</th>
                 </tr>
               </thead>
@@ -118,14 +117,7 @@ const DecisionListPage = () => {
                         ) : '-'}
                       </td>
                       <td>
-                        <DecisionStatusBadge status={decision.decision_status} />
-                      </td>
-                      <td>
-                        {decision.is_final ? (
-                          <Badge bg="success">Final</Badge>
-                        ) : (
-                          <Badge bg="secondary">Draft</Badge>
-                        )}
+                        <DecisionLifecycleBadge status={decision.decision_status} isFinal={decision.is_final} />
                       </td>
                       <td>{formatDate(decision.created_at)}</td>
                     </tr>

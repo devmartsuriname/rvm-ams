@@ -47,7 +47,7 @@ Database:
 
 ## Phase Completion Status
 
-All 9 phases + Phase 9B + Phase 9C CLOSED as of 2026-02-26. Phase 10A (Decision Status Hardening — Backend) CLOSED. Phase 10B (Decision UI Implementation + Navigation Structure Correction) CLOSED. Phase 10C (Decision Finalization Hard Lock Verification) CLOSED — all 5 enforcement vectors confirmed at database level: decision immutability trigger, dossier regression block, document version lock, chair approval gate, chair-only status changes. See `docs/Phase-10-Planning-Decision-Chair-Gate.md`.
+All 9 phases + Phase 9B + Phase 9C CLOSED as of 2026-02-26. Phase 10A (Decision Status Hardening — Backend) CLOSED. Phase 10B (Decision UI Implementation + Navigation Structure Correction) CLOSED. Phase 10C (Decision Finalization Hard Lock Verification) CLOSED. Phase 10D (Chair Gate Formalization Layer) CLOSED — unified `DecisionLifecycleBadge` replaces two-badge pattern; Chair Approval Gate visual section added to decision modal; audit viewer highlights finalization events; dossier decided-state shows lock indicator. UI clarity only, zero backend changes. See `docs/Phase-10-Planning-Decision-Chair-Gate.md`.
 
 ## Implemented Modules
 
