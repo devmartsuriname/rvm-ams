@@ -17,7 +17,7 @@
 ### Frontend
 ```
 src/
-├── app/(admin)/rvm/       # Domain pages (dossiers, meetings, tasks, audit)
+├── app/(admin)/rvm/       # Domain pages (dossiers, meetings, decisions, tasks, audit)
 ├── app/(admin)/dashboards/ # KPI dashboard
 ├── components/rvm/         # Domain components (modals, forms, status actions)
 ├── hooks/                  # Data hooks (useDossiers, useMeetings, etc.)
@@ -47,7 +47,7 @@ Database:
 
 ## Phase Completion Status
 
-All 9 phases + Phase 9B + Phase 9C CLOSED as of 2026-02-26. Phase 10A (Decision Status Hardening — Backend) CLOSED. Phase 10B (Decision UI Implementation) CLOSED. See `docs/Phase-10-Planning-Decision-Chair-Gate.md`.
+All 9 phases + Phase 9B + Phase 9C CLOSED as of 2026-02-26. Phase 10A (Decision Status Hardening — Backend) CLOSED. Phase 10B (Decision UI Implementation) CLOSED. Phase 10B Navigation Structure Correction CLOSED — standalone Decisions sidebar entry and list page added. See `docs/Phase-10-Planning-Decision-Chair-Gate.md`.
 
 ## Implemented Modules
 

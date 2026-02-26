@@ -6,6 +6,16 @@ const AGENDA_KEY = 'agenda-items'
 const MEETINGS_KEY = 'meetings'
 
 /**
+ * Fetch all decisions (standalone list page)
+ */
+export function useAllDecisions() {
+  return useQuery({
+    queryKey: [QUERY_KEY, 'all'],
+    queryFn: () => decisionService.fetchAllDecisions(),
+  })
+}
+
+/**
  * Fetch decision for an agenda item
  */
 export function useDecision(agendaItemId: string | undefined) {

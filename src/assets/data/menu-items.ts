@@ -30,6 +30,12 @@ export const MENU_ITEMS: MenuItemType[] = [
     url: '/rvm/meetings',
   },
   {
+    key: 'rvm-decisions',
+    label: 'Decisions',
+    icon: 'bx:check-circle',
+    url: '/rvm/decisions',
+  },
+  {
     key: 'rvm-tasks',
     label: 'Tasks',
     icon: 'bx:task',

@@ -105,6 +105,32 @@ export const decisionService = {
   },
 
   /**
+   * Fetch all decisions with agenda item and dossier info
+   * Read-only list for the standalone Decisions page
+   */
+  async fetchAllDecisions() {
+    const { data, error } = await supabase
+      .from('rvm_decision')
+      .select(`
+        id,
+        decision_text,
+        decision_status,
+        is_final,
+        created_at,
+        rvm_agenda_item!inner(
+          id,
+          agenda_number,
+          meeting_id,
+          rvm_dossier:dossier_id(id, dossier_number, title)
+        )
+      `)
+      .order('created_at', { ascending: false })
+
+    if (error) throw error
+    return data
+  },
+
+  /**
    * Record Chair RVM approval (manual recording, no automation)
    * NOTE: This does NOT auto-finalize. Chair gate enforcement is Phase 5.
    * This method is for RECORDING that approval was given.
