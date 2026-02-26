@@ -23,6 +23,7 @@
 | 10B | Navigation Structure Correction | CLOSED |
 | 10C | Decision Finalization Hard Lock Verification | CLOSED |
 | 10D | Chair Gate Formalization Layer (UI Visibility) | CLOSED |
+| 11 | Illegal Attempt Logging Hardening | PARTIALLY IMPLEMENTED |
 
 ## Database Architecture
 
@@ -59,3 +60,11 @@
 - Audit engine captures all mutations automatically
 - Status transitions enforced at database level
 - Immutability gates prevent edits on finalized entities
+
+## Phase 11 — Illegal Attempt Logging
+
+- Table `rvm_illegal_attempt_log` created for forensic logging of blocked mutations
+- Function `log_illegal_attempt()` (SECURITY DEFINER) integrated into 5 enforcement triggers
+- dblink extension enabled (in `extensions` schema) for autonomous transactions
+- **Known gap:** dblink localhost connections restricted on Supabase managed — logging is best-effort
+- Enforcement is 100% intact regardless of logging status (Rule D)
