@@ -22,9 +22,9 @@ const SEED_DOSSIERS = [
   { number: "RVM-SEED-001", title: "[SEED] Housing Subsidy Allocation Program", ministry: "Ministry of Social Affairs", serviceType: "proposal" as const, subtype: "OPA" as const, status: "draft" as const, urgency: "regular" as const },
   { number: "RVM-SEED-002", title: "[SEED] Transport Infrastructure Expansion", ministry: "Ministry of Public Works", serviceType: "proposal" as const, subtype: "ORAG" as const, status: "registered" as const, urgency: "urgent" as const },
   { number: "RVM-SEED-003", title: "[SEED] Digital Government Strategy", ministry: "Ministry of Communication", serviceType: "proposal" as const, subtype: "OPA" as const, status: "in_preparation" as const, urgency: "regular" as const },
-  { number: "RVM-SEED-004", title: "[SEED] Civil Service Modernization Plan", ministry: "Ministry of Home Affairs", serviceType: "missive" as const, subtype: null, status: "scheduled" as const, urgency: "regular" as const },
+  { number: "RVM-SEED-004", title: "[SEED] Civil Service Modernization Plan", ministry: "Ministry of Home Affairs", serviceType: "proposal" as const, subtype: "ORAG" as const, status: "scheduled" as const, urgency: "regular" as const },
   { number: "RVM-SEED-005", title: "[SEED] National Energy Transition Framework", ministry: "Ministry of Natural Resources", serviceType: "proposal" as const, subtype: "OPA" as const, status: "decided" as const, urgency: "special" as const },
-  { number: "RVM-SEED-006", title: "[SEED] Agricultural Export Regulation Review", ministry: "Ministry of Agriculture", serviceType: "missive" as const, subtype: null, status: "archived" as const, urgency: "regular" as const },
+  { number: "RVM-SEED-006", title: "[SEED] Agricultural Export Regulation Review", ministry: "Ministry of Agriculture", serviceType: "proposal" as const, subtype: "OPA" as const, status: "archived" as const, urgency: "regular" as const },
 ];
 
 const SEED_MEETINGS = [
@@ -216,45 +216,37 @@ Deno.serve(async (req) => {
       }
     }
 
-    // ── 1. Create auth users (idempotent) ──
+    // ── 1. Create auth users (idempotent — try create, reuse on conflict) ──
     const userAuthIds: string[] = [];
     for (const seedUser of SEED_USERS) {
-      // Check if auth user already exists
-      const { data: existingUsers } = await supabase.auth.admin.listUsers({
-        page: 1,
-        perPage: 1,
+      const { data: newUser, error: createError } = await supabase.auth.admin.createUser({
+        email: seedUser.email,
+        password: SEED_PASSWORD,
+        email_confirm: true,
       });
 
-      let existingUser = null;
-      if (existingUsers?.users) {
-        existingUser = existingUsers.users.find((u) => u.email === seedUser.email);
-      }
-
-      // If not found in first page, search more broadly
-      if (!existingUser) {
-        let page = 2;
-        let hasMore = (existingUsers?.users?.length ?? 0) > 0;
-        while (hasMore && !existingUser) {
-          const { data: moreUsers } = await supabase.auth.admin.listUsers({ page, perPage: 50 });
-          if (moreUsers?.users) {
-            existingUser = moreUsers.users.find((u) => u.email === seedUser.email);
-            hasMore = moreUsers.users.length === 50;
-          } else {
-            hasMore = false;
+      if (createError) {
+        // User already exists — find their ID by listing all users
+        if (createError.message.includes("already been registered")) {
+          // Search through paginated user list
+          let found = false;
+          let page = 1;
+          while (!found) {
+            const { data: listData } = await supabase.auth.admin.listUsers({ page, perPage: 100 });
+            if (!listData?.users || listData.users.length === 0) break;
+            const match = listData.users.find((u) => u.email === seedUser.email);
+            if (match) {
+              userAuthIds.push(match.id);
+              found = true;
+            }
+            if (listData.users.length < 100) break;
+            page++;
           }
-          page++;
+          if (!found) throw new Error(`User ${seedUser.email} exists but could not be found via listUsers`);
+        } else {
+          throw new Error(`Failed to create user ${seedUser.email}: ${createError.message}`);
         }
-      }
-
-      if (existingUser) {
-        userAuthIds.push(existingUser.id);
       } else {
-        const { data: newUser, error: createError } = await supabase.auth.admin.createUser({
-          email: seedUser.email,
-          password: SEED_PASSWORD,
-          email_confirm: true,
-        });
-        if (createError) throw new Error(`Failed to create user ${seedUser.email}: ${createError.message}`);
         userAuthIds.push(newUser.user.id);
       }
     }
