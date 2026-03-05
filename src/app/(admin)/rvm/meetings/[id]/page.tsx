@@ -16,6 +16,8 @@ import CreateDecisionModal from '@/components/rvm/CreateDecisionModal'
 import DecisionManagementModal from '@/components/rvm/DecisionManagementModal'
 import CreateAgendaItemModal from '@/components/rvm/CreateAgendaItemModal'
 import { getErrorMessage } from '@/utils/rls-error'
+import DecisionReport from '@/components/rvm/DecisionReport'
+import IconifyIcon from '@/components/wrapper/IconifyIcon'
 import { toast } from 'react-toastify'
 import type { Enums } from '@/integrations/supabase/types'
 
