@@ -72,6 +72,7 @@ const UploadDocumentModal = ({ show, onHide, dossierId, decisions = [], agendaIt
         confidentialityLevel: confLevel,
         file,
         decisionId: decisionId || null,
+        agendaItemId: agendaItemId || null,
         createdBy: userId ?? null,
       })
       toast.success('Document uploaded successfully')
