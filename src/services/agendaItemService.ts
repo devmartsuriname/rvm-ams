@@ -1,6 +1,6 @@
 import { supabase } from '@/integrations/supabase/client'
 import type { Tables, TablesInsert, TablesUpdate, Enums } from '@/integrations/supabase/types'
-import { handleGuardedUpdate } from '@/utils/rls-error'
+import { handleGuardedUpdate, fetchViolationReason } from '@/utils/rls-error'
 
 export type AgendaItem = Tables<'rvm_agenda_item'>
 export type AgendaItemInsert = TablesInsert<'rvm_agenda_item'>
