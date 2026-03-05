@@ -19,7 +19,7 @@ type Props = {
   confidentialityLevel?: Enums<'confidentiality_level'> | null
 }
 
-const DocumentVersionModal = ({ show, onHide, documentId, documentTitle, dossierId }: Props) => {
+const DocumentVersionModal = ({ show, onHide, documentId, documentTitle, dossierId, confidentialityLevel }: Props) => {
   const { canUploadDocument, userId } = useUserRoles()
   const { data: versions, isLoading } = useDocumentVersions(documentId)
   const uploadVersion = useUploadNewVersion()
