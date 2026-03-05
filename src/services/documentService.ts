@@ -100,11 +100,14 @@ export const documentService = {
 
     if (versionError) throw versionError
 
-    // 4. Link current_version_id
-    await supabase
+    // 4. Link current_version_id (guarded)
+    const versionLinkResult = await supabase
       .from('rvm_document')
       .update({ current_version_id: version.id })
       .eq('id', doc.id)
+      .select()
+
+    await handleGuardedUpdate(versionLinkResult, 'rvm_document', doc.id)
 
     return doc
   },
