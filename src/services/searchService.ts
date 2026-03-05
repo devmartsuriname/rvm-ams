@@ -6,9 +6,12 @@ export interface SearchFilters {
   meetingType?: string
   meetingStatus?: string
   decisionStatus?: string
+  decisionDateFrom?: string
+  decisionDateTo?: string
   dossierStatus?: string
   dossierMinistry?: string
   agendaStatus?: string
+  agendaMeetingId?: string
 }
 
 export interface SearchResults {
