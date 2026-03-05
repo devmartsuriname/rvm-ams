@@ -5,7 +5,7 @@ import { useGlobalSearch } from '@/hooks/useSearch'
 import SearchFilters from '@/components/search/SearchFilters'
 import type { SearchFilters as SearchFiltersType } from '@/services/searchService'
 import IconifyIcon from '@/components/wrapper/IconifyIcon'
-import { PageTitle } from '@/components/PageTitle'
+import PageTitle from '@/components/PageTitle'
 
 const SearchPage = () => {
   const [searchParams, setSearchParams] = useSearchParams()
@@ -32,7 +32,7 @@ const SearchPage = () => {
 
   return (
     <>
-      <PageTitle title="Search" />
+      <PageTitle title="Search" subName="RVM-AMS" />
       <Row className="mb-3">
         <Col>
           <div className="position-relative">
