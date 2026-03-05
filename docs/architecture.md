@@ -1,6 +1,6 @@
 # AMS-RVM System Architecture
 
-**Last Updated:** 2026-02-26
+**Last Updated:** 2026-03-05
 
 ---
 
@@ -47,7 +47,7 @@ Database:
 
 ## Phase Completion Status
 
-All 9 phases + Phase 9B + Phase 9C CLOSED as of 2026-02-26. Phase 10A–10D CLOSED. Phase 11 (Illegal Attempt Logging Hardening) CLOSED. Phase 12 (DMS-Light UI) CLOSED — document upload, versioning, download, confidentiality badges, role-gated upload controls. **Accepted limitation:** silent rejection semantics (RETURN NULL, not RAISE EXCEPTION) — intentional trade-off for persistent logging on managed Supabase.
+All 9 phases + Phase 9B + Phase 9C CLOSED as of 2026-02-26. Phase 10A–10D CLOSED. Phase 11 (Illegal Attempt Logging Hardening) CLOSED. Phase 12 (DMS-Light UI) CLOSED. Phase 13 (Agenda Item Management UI) CLOSED — meeting detail tabs, agenda CRUD, decision linking, role-gated editing. **Accepted limitation:** silent rejection semantics (RETURN NULL, not RAISE EXCEPTION) — intentional trade-off for persistent logging on managed Supabase.
 
 ## Implemented Modules
 
@@ -59,8 +59,36 @@ All 9 phases + Phase 9B + Phase 9C CLOSED as of 2026-02-26. Phase 10A–10D CLOS
 | Audit Log | N/A | N/A | N/A | ✅ (read-only) |
 | Dashboard | N/A | N/A | N/A | ✅ |
 | Decisions | ✅ | ✅ | ✅ | ✅ |
-| Agenda Items | — | — | — | Deferred |
+| Agenda Items | ✅ | ✅ | N/A | ✅ |
 | Documents | ✅ | ✅ | N/A | ✅ |
+
+## Agenda Item Management UI (Phase 13)
+
+### Entity Relationships
+
+- **Meeting → Agenda Items:** one-to-many — each agenda item belongs to exactly one meeting (`meeting_id` NOT NULL)
+- **Agenda Item → Dossier:** mandatory (`dossier_id` NOT NULL) — each agenda item references a dossier
+- **Agenda Item → Decision:** one-to-one optional — a decision may be linked via `agenda_item_id`
+
+### Status Lifecycle
+
+- Four states: `scheduled`, `presented`, `withdrawn`, `moved`
+- Status transitions governed by backend triggers (not editable via UI form)
+
+### Role-Based Editing Permissions
+
+- **Edit roles:** `secretary_rvm`, `admin_agenda`
+- **Read-only roles:** `chair_rvm`, `audit_readonly`, `admin_reporting`
+- Controls hidden when meeting status is `closed`
+
+### UI Integration
+
+- Meeting detail page uses tab navigation: Overview | Agenda Items | Decisions
+- Agenda items tab is the operational workspace for meeting preparation
+- Agenda items sorted by `agenda_number` ascending
+- All queries scoped by `meeting_id` — no broad fetches
+
+---
 
 ## DMS-Light Document Management (Phase 12)
 
