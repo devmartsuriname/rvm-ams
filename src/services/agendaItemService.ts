@@ -1,6 +1,6 @@
 import { supabase } from '@/integrations/supabase/client'
 import type { Tables, TablesInsert, TablesUpdate, Enums } from '@/integrations/supabase/types'
-import { handleGuardedUpdate } from '@/utils/rls-error'
+import { handleGuardedUpdate, fetchViolationReason } from '@/utils/rls-error'
 
 export type AgendaItem = Tables<'rvm_agenda_item'>
 export type AgendaItemInsert = TablesInsert<'rvm_agenda_item'>
@@ -92,12 +92,23 @@ export const agendaItemService = {
         .update({ agenda_number: item.agenda_number })
         .eq('id', item.id)
         .eq('meeting_id', meetingId)
+        .select()
     )
 
     const results = await Promise.all(updates)
+
+    // Check for explicit errors
     const errors = results.filter(r => r.error)
     if (errors.length > 0) {
       throw errors[0].error
+    }
+
+    // Check for silent RETURN NULL rejects (0 rows returned)
+    for (let i = 0; i < results.length; i++) {
+      if (!results[i].data || results[i].data.length === 0) {
+        const reason = await fetchViolationReason('rvm_agenda_item', itemOrder[i].id)
+        throw new Error(reason ?? 'Agenda reorder blocked by governance enforcement.')
+      }
     }
 
     return true

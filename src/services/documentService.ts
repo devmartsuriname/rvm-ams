@@ -1,5 +1,6 @@
 import { supabase } from '@/integrations/supabase/client'
 import type { Tables, Enums } from '@/integrations/supabase/types'
+import { handleGuardedUpdate } from '@/utils/rls-error'
 
 export type RvmDocument = Tables<'rvm_document'>
 export type RvmDocumentVersion = Tables<'rvm_document_version'>
@@ -99,11 +100,14 @@ export const documentService = {
 
     if (versionError) throw versionError
 
-    // 4. Link current_version_id
-    await supabase
+    // 4. Link current_version_id (guarded)
+    const versionLinkResult = await supabase
       .from('rvm_document')
       .update({ current_version_id: version.id })
       .eq('id', doc.id)
+      .select()
+
+    await handleGuardedUpdate(versionLinkResult, 'rvm_document', doc.id)
 
     return doc
   },
@@ -155,11 +159,14 @@ export const documentService = {
 
     if (versionError) throw versionError
 
-    // Update current_version_id
-    await supabase
+    // Update current_version_id (guarded)
+    const versionLinkResult = await supabase
       .from('rvm_document')
       .update({ current_version_id: version.id })
       .eq('id', documentId)
+      .select()
+
+    await handleGuardedUpdate(versionLinkResult, 'rvm_document', documentId)
 
     return version
   },
