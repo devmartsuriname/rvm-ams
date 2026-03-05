@@ -101,6 +101,9 @@ async function searchAgendaItems(pattern: string, filters?: SearchFilters) {
   if (filters?.agendaStatus) {
     q = q.eq('status', filters.agendaStatus)
   }
+  if (filters?.agendaMeetingId) {
+    q = q.eq('meeting_id', filters.agendaMeetingId)
+  }
 
   const { data, error } = await q
   if (error) throw error
