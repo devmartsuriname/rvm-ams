@@ -1,7 +1,14 @@
 import { Card, Row, Col, Form, Button, Collapse } from 'react-bootstrap'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import type { SearchFilters as SearchFiltersType } from '@/services/searchService'
 import IconifyIcon from '@/components/wrapper/IconifyIcon'
+import { supabase } from '@/integrations/supabase/client'
+
+interface MeetingOption {
+  id: string
+  meeting_date: string
+  meeting_type: string | null
+}
 
 interface Props {
   filters: SearchFiltersType
@@ -10,6 +17,18 @@ interface Props {
 
 const SearchFilters = ({ filters, onChange }: Props) => {
   const [open, setOpen] = useState(false)
+  const [meetings, setMeetings] = useState<MeetingOption[]>([])
+
+  useEffect(() => {
+    supabase
+      .from('rvm_meeting')
+      .select('id, meeting_date, meeting_type')
+      .order('meeting_date', { ascending: false })
+      .limit(20)
+      .then(({ data }) => {
+        if (data) setMeetings(data)
+      })
+  }, [])
 
   const update = (key: keyof SearchFiltersType, value: string) => {
     onChange({ ...filters, [key]: value || undefined })
@@ -95,7 +114,7 @@ const SearchFilters = ({ filters, onChange }: Props) => {
               {/* Decision Filters */}
               <Col md={3}>
                 <h6 className="text-muted mb-2">Decision</h6>
-                <Form.Group>
+                <Form.Group className="mb-2">
                   <Form.Label className="small">Status</Form.Label>
                   <Form.Select size="sm" value={filters.decisionStatus || ''} onChange={e => update('decisionStatus', e.target.value)}>
                     <option value="">All</option>
@@ -105,12 +124,20 @@ const SearchFilters = ({ filters, onChange }: Props) => {
                     <option value="deferred">Deferred</option>
                   </Form.Select>
                 </Form.Group>
+                <Form.Group className="mb-2">
+                  <Form.Label className="small">Date From</Form.Label>
+                  <Form.Control size="sm" type="date" value={filters.decisionDateFrom || ''} onChange={e => update('decisionDateFrom', e.target.value)} />
+                </Form.Group>
+                <Form.Group>
+                  <Form.Label className="small">Date To</Form.Label>
+                  <Form.Control size="sm" type="date" value={filters.decisionDateTo || ''} onChange={e => update('decisionDateTo', e.target.value)} />
+                </Form.Group>
               </Col>
 
               {/* Agenda Filters */}
               <Col md={3}>
                 <h6 className="text-muted mb-2">Agenda Item</h6>
-                <Form.Group>
+                <Form.Group className="mb-2">
                   <Form.Label className="small">Status</Form.Label>
                   <Form.Select size="sm" value={filters.agendaStatus || ''} onChange={e => update('agendaStatus', e.target.value)}>
                     <option value="">All</option>
@@ -118,6 +145,17 @@ const SearchFilters = ({ filters, onChange }: Props) => {
                     <option value="presented">Presented</option>
                     <option value="withdrawn">Withdrawn</option>
                     <option value="moved">Moved</option>
+                  </Form.Select>
+                </Form.Group>
+                <Form.Group>
+                  <Form.Label className="small">Meeting</Form.Label>
+                  <Form.Select size="sm" value={filters.agendaMeetingId || ''} onChange={e => update('agendaMeetingId', e.target.value)}>
+                    <option value="">All Meetings</option>
+                    {meetings.map(m => (
+                      <option key={m.id} value={m.id}>
+                        {m.meeting_date} — {m.meeting_type || 'regular'}
+                      </option>
+                    ))}
                   </Form.Select>
                 </Form.Group>
               </Col>
