@@ -22,9 +22,9 @@ const SEED_DOSSIERS = [
   { number: "RVM-SEED-001", title: "[SEED] Housing Subsidy Allocation Program", ministry: "Ministry of Social Affairs", serviceType: "proposal" as const, subtype: "OPA" as const, status: "draft" as const, urgency: "regular" as const },
   { number: "RVM-SEED-002", title: "[SEED] Transport Infrastructure Expansion", ministry: "Ministry of Public Works", serviceType: "proposal" as const, subtype: "ORAG" as const, status: "registered" as const, urgency: "urgent" as const },
   { number: "RVM-SEED-003", title: "[SEED] Digital Government Strategy", ministry: "Ministry of Communication", serviceType: "proposal" as const, subtype: "OPA" as const, status: "in_preparation" as const, urgency: "regular" as const },
-  { number: "RVM-SEED-004", title: "[SEED] Civil Service Modernization Plan", ministry: "Ministry of Home Affairs", serviceType: "missive" as const, subtype: null, status: "scheduled" as const, urgency: "regular" as const },
+  { number: "RVM-SEED-004", title: "[SEED] Civil Service Modernization Plan", ministry: "Ministry of Home Affairs", serviceType: "proposal" as const, subtype: "ORAG" as const, status: "scheduled" as const, urgency: "regular" as const },
   { number: "RVM-SEED-005", title: "[SEED] National Energy Transition Framework", ministry: "Ministry of Natural Resources", serviceType: "proposal" as const, subtype: "OPA" as const, status: "decided" as const, urgency: "special" as const },
-  { number: "RVM-SEED-006", title: "[SEED] Agricultural Export Regulation Review", ministry: "Ministry of Agriculture", serviceType: "missive" as const, subtype: null, status: "archived" as const, urgency: "regular" as const },
+  { number: "RVM-SEED-006", title: "[SEED] Agricultural Export Regulation Review", ministry: "Ministry of Agriculture", serviceType: "proposal" as const, subtype: "OPA" as const, status: "archived" as const, urgency: "regular" as const },
 ];
 
 const SEED_MEETINGS = [
