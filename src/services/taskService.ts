@@ -1,5 +1,6 @@
 import { supabase } from '@/integrations/supabase/client'
 import type { Tables, TablesInsert, TablesUpdate, Enums } from '@/integrations/supabase/types'
+import { handleGuardedUpdate } from '@/utils/rls-error'
 
 export type Task = Tables<'rvm_task'>
 export type TaskInsert = TablesInsert<'rvm_task'>
