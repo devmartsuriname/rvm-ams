@@ -72,15 +72,13 @@ export const agendaItemService = {
    * Update agenda item
    */
   async updateAgendaItem(id: string, data: AgendaItemUpdate) {
-    const { data: updated, error } = await supabase
+    const result = await supabase
       .from('rvm_agenda_item')
       .update(data)
       .eq('id', id)
       .select()
-      .single()
 
-    if (error) throw error
-    return updated
+    return handleGuardedUpdate(result, 'rvm_agenda_item', id)
   },
 
   /**
