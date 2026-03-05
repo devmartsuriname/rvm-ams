@@ -7,6 +7,8 @@ import { documentService } from '@/services/documentService'
 import { toast } from 'react-toastify'
 import { getErrorMessage } from '@/utils/rls-error'
 import { LoadingState } from '@/components/rvm/StateComponents'
+import { ConfidentialityBadge } from '@/components/rvm/StatusBadges'
+import type { Enums } from '@/integrations/supabase/types'
 
 type Props = {
   show: boolean
@@ -14,9 +16,10 @@ type Props = {
   documentId: string | undefined
   documentTitle: string
   dossierId: string
+  confidentialityLevel?: Enums<'confidentiality_level'> | null
 }
 
-const DocumentVersionModal = ({ show, onHide, documentId, documentTitle, dossierId }: Props) => {
+const DocumentVersionModal = ({ show, onHide, documentId, documentTitle, dossierId, confidentialityLevel }: Props) => {
   const { canUploadDocument, userId } = useUserRoles()
   const { data: versions, isLoading } = useDocumentVersions(documentId)
   const uploadVersion = useUploadNewVersion()
@@ -74,7 +77,10 @@ const DocumentVersionModal = ({ show, onHide, documentId, documentTitle, dossier
   return (
     <Modal show={show} onHide={onHide} size="lg" centered>
       <Modal.Header closeButton>
-        <Modal.Title>Version History — {documentTitle}</Modal.Title>
+        <Modal.Title>
+          Version History — {documentTitle}{' '}
+          {confidentialityLevel && <ConfidentialityBadge level={confidentialityLevel} />}
+        </Modal.Title>
       </Modal.Header>
       <Modal.Body>
         {isLoading ? (

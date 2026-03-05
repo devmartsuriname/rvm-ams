@@ -27,9 +27,10 @@ type Props = {
   onHide: () => void
   dossierId: string
   decisions?: { id: string; decision_text: string }[]
+  agendaItems?: { id: string; title_override?: string | null; agenda_number: number }[]
 }
 
-const UploadDocumentModal = ({ show, onHide, dossierId, decisions = [] }: Props) => {
+const UploadDocumentModal = ({ show, onHide, dossierId, decisions = [], agendaItems = [] }: Props) => {
   const { userId } = useUserRoles()
   const createDoc = useCreateDocument()
 
@@ -37,6 +38,7 @@ const UploadDocumentModal = ({ show, onHide, dossierId, decisions = [] }: Props)
   const [docType, setDocType] = useState<Enums<'document_type'>>('attachment')
   const [confLevel, setConfLevel] = useState<Enums<'confidentiality_level'>>('standard_confidential')
   const [decisionId, setDecisionId] = useState('')
+  const [agendaItemId, setAgendaItemId] = useState('')
   const [file, setFile] = useState<File | null>(null)
 
   const onDrop = useCallback((accepted: File[]) => {
@@ -54,6 +56,7 @@ const UploadDocumentModal = ({ show, onHide, dossierId, decisions = [] }: Props)
     setDocType('attachment')
     setConfLevel('standard_confidential')
     setDecisionId('')
+    setAgendaItemId('')
     setFile(null)
   }
 
@@ -69,6 +72,7 @@ const UploadDocumentModal = ({ show, onHide, dossierId, decisions = [] }: Props)
         confidentialityLevel: confLevel,
         file,
         decisionId: decisionId || null,
+        agendaItemId: agendaItemId || null,
         createdBy: userId ?? null,
       })
       toast.success('Document uploaded successfully')
@@ -88,7 +92,7 @@ const UploadDocumentModal = ({ show, onHide, dossierId, decisions = [] }: Props)
   }
 
   return (
-    <Modal show={show} onHide={onHide} size="lg" centered>
+    <Modal show={show} onHide={onHide} size="xl" centered>
       <Modal.Header closeButton>
         <Modal.Title>Upload Document</Modal.Title>
       </Modal.Header>
@@ -134,13 +138,40 @@ const UploadDocumentModal = ({ show, onHide, dossierId, decisions = [] }: Props)
 
           {decisions.length > 0 && (
             <Row className="mb-3">
-              <Col md={12}>
+              <Col md={6}>
                 <Form.Group>
                   <Form.Label>Link to Decision (optional)</Form.Label>
                   <Form.Select value={decisionId} onChange={(e) => setDecisionId(e.target.value)}>
                     <option value="">— None —</option>
                     {decisions.map((d) => (
                       <option key={d.id} value={d.id}>{d.decision_text.substring(0, 80)}</option>
+                    ))}
+                  </Form.Select>
+                </Form.Group>
+              </Col>
+              <Col md={6}>
+                <Form.Group>
+                  <Form.Label>Link to Agenda Item (optional)</Form.Label>
+                  <Form.Select value={agendaItemId} onChange={(e) => setAgendaItemId(e.target.value)}>
+                    <option value="">— None —</option>
+                    {agendaItems.map((a) => (
+                      <option key={a.id} value={a.id}>#{a.agenda_number} — {a.title_override || `Agenda Item ${a.agenda_number}`}</option>
+                    ))}
+                  </Form.Select>
+                </Form.Group>
+              </Col>
+            </Row>
+          )}
+
+          {decisions.length === 0 && agendaItems.length > 0 && (
+            <Row className="mb-3">
+              <Col md={12}>
+                <Form.Group>
+                  <Form.Label>Link to Agenda Item (optional)</Form.Label>
+                  <Form.Select value={agendaItemId} onChange={(e) => setAgendaItemId(e.target.value)}>
+                    <option value="">— None —</option>
+                    {agendaItems.map((a) => (
+                      <option key={a.id} value={a.id}>#{a.agenda_number} — {a.title_override || `Agenda Item ${a.agenda_number}`}</option>
                     ))}
                   </Form.Select>
                 </Form.Group>

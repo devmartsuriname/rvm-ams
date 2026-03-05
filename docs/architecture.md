@@ -47,7 +47,7 @@ Database:
 
 ## Phase Completion Status
 
-All 9 phases + Phase 9B + Phase 9C CLOSED as of 2026-02-26. Phase 10A–10D CLOSED. Phase 11 (Illegal Attempt Logging Hardening) CLOSED — RETURN NULL pattern; `rvm_illegal_attempt_log` persists forensic logs; 5 enforcement triggers updated; service layer detects silent rejections via `handleGuardedUpdate()`. **Accepted limitation:** silent rejection semantics (RETURN NULL, not RAISE EXCEPTION) — intentional trade-off for persistent logging on managed Supabase.
+All 9 phases + Phase 9B + Phase 9C CLOSED as of 2026-02-26. Phase 10A–10D CLOSED. Phase 11 (Illegal Attempt Logging Hardening) CLOSED. Phase 12 (DMS-Light UI) CLOSED — document upload, versioning, download, confidentiality badges, role-gated upload controls. **Accepted limitation:** silent rejection semantics (RETURN NULL, not RAISE EXCEPTION) — intentional trade-off for persistent logging on managed Supabase.
 
 ## Implemented Modules
 
@@ -60,4 +60,34 @@ All 9 phases + Phase 9B + Phase 9C CLOSED as of 2026-02-26. Phase 10A–10D CLOS
 | Dashboard | N/A | N/A | N/A | ✅ |
 | Decisions | ✅ | ✅ | ✅ | ✅ |
 | Agenda Items | — | — | — | Deferred |
-| Documents | — | — | — | Deferred |
+| Documents | ✅ | ✅ | N/A | ✅ |
+
+## DMS-Light Document Management (Phase 12)
+
+### Entity Relationships
+
+- **Document → Dossier:** mandatory (`dossier_id` NOT NULL) — every document belongs to exactly one dossier
+- **Document → Decision:** optional (`decision_id`) — links document to a decision record
+- **Document → Agenda Item:** optional (`agenda_item_id`) — links document to an agenda item
+- **Document → Versions:** one-to-many — `rvm_document_version` records linked by `document_id`
+- **Document → Current Version:** `current_version_id` FK to latest `rvm_document_version`
+
+### Versioning Model
+
+- Append-only: new versions are inserted, never overwritten
+- Version numbering: sequential integers starting at 1
+- `current_version_id` on `rvm_document` always points to the latest version
+- All prior versions remain accessible for download and audit
+
+### Confidentiality Handling
+
+- Three levels: `standard_confidential`, `restricted`, `highly_restricted`
+- Displayed as colored badges in document list and version modal
+- **No client-side filtering** — RLS is the sole enforcement mechanism for access control
+
+### Storage Architecture
+
+- **Bucket:** `rvm-documents` (private)
+- **Path pattern:** `{dossierId}/{documentId}/{timestamp}_{filename}`
+- **Access:** Signed URLs generated server-side for downloads (60-second expiry)
+- **No public access** — all reads go through Supabase storage RLS

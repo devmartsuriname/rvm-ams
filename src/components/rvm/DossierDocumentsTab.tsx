@@ -28,6 +28,7 @@ type Props = {
 const DossierDocumentsTab = ({ dossierId, decisions = [] }: Props) => {
   const { canUploadDocument } = useUserRoles()
   const { data: documents, isLoading, error, refetch } = useDocumentsByDossier(dossierId)
+  const decisionMap = new Map(decisions.map((d) => [d.id, d.decision_text]))
 
   const [showUpload, setShowUpload] = useState(false)
   const [selectedDoc, setSelectedDoc] = useState<DocumentWithVersion | null>(null)
@@ -72,7 +73,7 @@ const DossierDocumentsTab = ({ dossierId, decisions = [] }: Props) => {
             </div>
           ) : (
             <Table responsive hover className="mb-0">
-              <thead>
+              <thead className="table-light">
                 <tr>
                   <th>Title</th>
                   <th>Type</th>
@@ -80,6 +81,7 @@ const DossierDocumentsTab = ({ dossierId, decisions = [] }: Props) => {
                   <th>Version</th>
                   <th>Uploaded By</th>
                   <th>Date</th>
+                  <th>Linked Decision</th>
                   <th></th>
                 </tr>
               </thead>
@@ -92,6 +94,9 @@ const DossierDocumentsTab = ({ dossierId, decisions = [] }: Props) => {
                     <td>v{(doc.current_version as any)?.version_number ?? '—'}</td>
                     <td>{(doc.creator as any)?.full_name ?? '-'}</td>
                     <td>{formatDate(doc.created_at)}</td>
+                    <td className="text-truncate" style={{ maxWidth: 180 }}>
+                      {doc.decision_id ? (decisionMap.get(doc.decision_id)?.substring(0, 60) ?? doc.decision_id) : '—'}
+                    </td>
                     <td>
                       <Button
                         variant="outline-primary"
@@ -124,6 +129,7 @@ const DossierDocumentsTab = ({ dossierId, decisions = [] }: Props) => {
           documentId={selectedDoc.id}
           documentTitle={selectedDoc.title}
           dossierId={dossierId}
+          confidentialityLevel={selectedDoc.confidentiality_level}
         />
       )}
     </>

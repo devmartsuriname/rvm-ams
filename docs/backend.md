@@ -79,3 +79,49 @@
 - Enforcement remains at the database level; logging persists reliably in all cases.
 - The application service layer uses `handleGuardedUpdate()` + `get_latest_violation()` RPC to surface violation reasons to users.
 - **Future enhancement (optional, deferred):** Unify user-facing error semantics via standardized service-layer wrappers for all guarded entities.
+
+## Phase 12 — DMS-Light UI (CLOSED)
+
+### Document Storage Architecture
+
+- **Storage Bucket:** `rvm-documents` (private, created via migration)
+- **Tables used:** `rvm_document` (metadata) + `rvm_document_version` (version records) — both pre-existing from Phase 6
+- **No schema changes** — Phase 12 is UI + service layer only
+
+### Versioning Model
+
+- Each document has multiple versions in `rvm_document_version`
+- `version_number` is incremented by fetching `MAX(version_number) + 1`
+- `rvm_document.current_version_id` points to the latest version (updated on each upload)
+- Version history is preserved — prior versions remain queryable and downloadable
+
+### Upload Flow
+
+1. Insert document metadata into `rvm_document` (title, doc_type, confidentiality_level, dossier_id)
+2. Upload file to `rvm-documents` storage bucket (path: `{dossierId}/{documentId}/{timestamp}_{filename}`)
+3. Insert version record into `rvm_document_version` (file_name, file_size, mime_type, storage_path, version_number=1)
+4. Update `rvm_document.current_version_id` to point to new version record
+
+### New Version Upload Flow
+
+1. Fetch max version_number for the document
+2. Upload file to storage bucket
+3. Insert new version record with incremented version_number
+4. Update `current_version_id` on `rvm_document`
+
+### Role Permissions (Storage)
+
+| Action | Allowed Roles |
+|--------|--------------|
+| INSERT (upload) | secretary_rvm, admin_dossier, admin_reporting |
+| SELECT (download) | chair_rvm, secretary_rvm, deputy_secretary, admin_intake, admin_dossier, admin_agenda, admin_reporting, audit_readonly |
+| UPDATE | Not allowed |
+| DELETE | Not allowed |
+
+### Governance Constraints
+
+- No schema changes to `rvm_document` or `rvm_document_version` tables
+- No changes to existing RLS policies on document tables
+- No trigger modifications
+- Storage bucket RLS policies align with document table SELECT/INSERT roles
+- UI role-gating (`canUploadDocument`) mirrors storage INSERT permissions
