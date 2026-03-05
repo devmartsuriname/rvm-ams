@@ -1,5 +1,6 @@
 import { supabase } from '@/integrations/supabase/client'
 import type { Tables, TablesInsert, TablesUpdate, Enums } from '@/integrations/supabase/types'
+import { handleGuardedUpdate } from '@/utils/rls-error'
 
 export type AgendaItem = Tables<'rvm_agenda_item'>
 export type AgendaItemInsert = TablesInsert<'rvm_agenda_item'>
@@ -71,15 +72,13 @@ export const agendaItemService = {
    * Update agenda item
    */
   async updateAgendaItem(id: string, data: AgendaItemUpdate) {
-    const { data: updated, error } = await supabase
+    const result = await supabase
       .from('rvm_agenda_item')
       .update(data)
       .eq('id', id)
       .select()
-      .single()
 
-    if (error) throw error
-    return updated
+    return handleGuardedUpdate(result, 'rvm_agenda_item', id)
   },
 
   /**
@@ -109,15 +108,13 @@ export const agendaItemService = {
    * Items are not deleted, only marked as withdrawn
    */
   async withdrawAgendaItem(id: string) {
-    const { data, error } = await supabase
+    const result = await supabase
       .from('rvm_agenda_item')
       .update({ status: 'withdrawn' })
       .eq('id', id)
       .select()
-      .single()
 
-    if (error) throw error
-    return data
+    return handleGuardedUpdate(result, 'rvm_agenda_item', id)
   },
 
   /**

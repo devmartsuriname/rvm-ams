@@ -1,5 +1,6 @@
 import { supabase } from '@/integrations/supabase/client'
 import type { Tables, TablesInsert, TablesUpdate, Enums } from '@/integrations/supabase/types'
+import { handleGuardedUpdate } from '@/utils/rls-error'
 
 export type Meeting = Tables<'rvm_meeting'>
 export type MeetingInsert = TablesInsert<'rvm_meeting'>
@@ -96,15 +97,13 @@ export const meetingService = {
    * RLS prevents update if status is closed
    */
   async updateMeeting(id: string, data: MeetingUpdate) {
-    const { data: updated, error } = await supabase
+    const result = await supabase
       .from('rvm_meeting')
       .update(data)
       .eq('id', id)
       .select()
-      .single()
 
-    if (error) throw error
-    return updated
+    return handleGuardedUpdate(result, 'rvm_meeting', id)
   },
 
   /**
@@ -112,15 +111,13 @@ export const meetingService = {
    * Valid transitions: draft → published → closed
    */
   async updateMeetingStatus(id: string, status: MeetingStatus) {
-    const { data: updated, error } = await supabase
+    const result = await supabase
       .from('rvm_meeting')
       .update({ status })
       .eq('id', id)
       .select()
-      .single()
 
-    if (error) throw error
-    return updated
+    return handleGuardedUpdate(result, 'rvm_meeting', id)
   },
 
   /**

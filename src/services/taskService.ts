@@ -1,5 +1,6 @@
 import { supabase } from '@/integrations/supabase/client'
 import type { Tables, TablesInsert, TablesUpdate, Enums } from '@/integrations/supabase/types'
+import { handleGuardedUpdate } from '@/utils/rls-error'
 
 export type Task = Tables<'rvm_task'>
 export type TaskInsert = TablesInsert<'rvm_task'>
@@ -99,15 +100,13 @@ export const taskService = {
    * RLS enforces: own tasks or secretary_rvm/deputy_secretary
    */
   async updateTask(id: string, data: TaskUpdate) {
-    const { data: updated, error } = await supabase
+    const result = await supabase
       .from('rvm_task')
       .update(data)
       .eq('id', id)
       .select()
-      .single()
 
-    if (error) throw error
-    return updated
+    return handleGuardedUpdate(result, 'rvm_task', id)
   },
 
   /**
@@ -123,15 +122,13 @@ export const taskService = {
       statusData.completed_at = new Date().toISOString()
     }
 
-    const { data, error } = await supabase
+    const result = await supabase
       .from('rvm_task')
       .update(statusData)
       .eq('id', id)
       .select()
-      .single()
 
-    if (error) throw error
-    return data
+    return handleGuardedUpdate(result, 'rvm_task', id)
   },
 
   /**
