@@ -1,5 +1,3 @@
-import { EmailLabelType, EmailType } from './data'
-
 export type ThemeType = 'light' | 'dark'
 
 export type OffcanvasControlType = {
@@ -36,28 +34,4 @@ export type LayoutType = LayoutState & {
   activityStream: OffcanvasControlType
   toggleBackdrop: () => void
   resetSettings: () => void
-}
-
-export type ChatOffcanvasStatesType = {
-  showChatList: boolean
-  showUserProfile: boolean
-  showVoiceCall: boolean
-  showVideoCall: boolean
-  showUserSetting: boolean
-}
-
-export type EmailOffcanvasStatesType = {
-  showNavigationMenu: boolean
-  showEmailDetails: boolean
-  showComposeEmail: boolean
-}
-
-export type EmailContextType = {
-  activeLabel: EmailLabelType
-  changeActiveLabel: (label: EmailLabelType) => void
-  activeMail: EmailType['id']
-  changeActiveMail: (newMail: EmailType['id']) => void
-  navigationBar: OffcanvasControlType
-  emailDetails: OffcanvasControlType
-  composeEmail: OffcanvasControlType
 }
