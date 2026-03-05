@@ -16,6 +16,7 @@ type Props = {
   documentId: string | undefined
   documentTitle: string
   dossierId: string
+  confidentialityLevel?: Enums<'confidentiality_level'> | null
 }
 
 const DocumentVersionModal = ({ show, onHide, documentId, documentTitle, dossierId }: Props) => {
