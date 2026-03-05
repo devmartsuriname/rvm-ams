@@ -77,7 +77,10 @@ const DocumentVersionModal = ({ show, onHide, documentId, documentTitle, dossier
   return (
     <Modal show={show} onHide={onHide} size="lg" centered>
       <Modal.Header closeButton>
-        <Modal.Title>Version History — {documentTitle}</Modal.Title>
+        <Modal.Title>
+          Version History — {documentTitle}{' '}
+          {confidentialityLevel && <ConfidentialityBadge level={confidentialityLevel} />}
+        </Modal.Title>
       </Modal.Header>
       <Modal.Body>
         {isLoading ? (

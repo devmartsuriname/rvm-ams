@@ -128,6 +128,7 @@ const DossierDocumentsTab = ({ dossierId, decisions = [] }: Props) => {
           documentId={selectedDoc.id}
           documentTitle={selectedDoc.title}
           dossierId={dossierId}
+          confidentialityLevel={selectedDoc.confidentiality_level}
         />
       )}
     </>
