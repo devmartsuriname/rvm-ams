@@ -12,6 +12,7 @@ const MeetingDetail = lazy(() => import('@/app/(admin)/rvm/meetings/[id]/page'))
 const TaskList = lazy(() => import('@/app/(admin)/rvm/tasks/page'))
 const DecisionList = lazy(() => import('@/app/(admin)/rvm/decisions/page'))
 const AuditLog = lazy(() => import('@/app/(admin)/rvm/audit/page'))
+const SearchPage = lazy(() => import('@/app/(admin)/search/page'))
 
 // Auth Routes
 const AuthSignIn = lazy(() => import('@/app/(other)/auth/sign-in/page'))
