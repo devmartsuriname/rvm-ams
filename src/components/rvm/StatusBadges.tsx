@@ -87,6 +87,17 @@ export function PriorityBadge({ priority }: { priority: TaskPriority | null | un
   return <Badge bg={config.variant}>{config.label}</Badge>
 }
 
+export function ConfidentialityBadge({ level }: { level: Enums<'confidentiality_level'> | null | undefined }) {
+  if (!level) return null
+  const map: Record<string, { variant: string; label: string }> = {
+    standard_confidential: { variant: 'secondary', label: 'Standard' },
+    restricted: { variant: 'warning', label: 'Restricted' },
+    highly_restricted: { variant: 'danger', label: 'Highly Restricted' },
+  }
+  const config = map[level] ?? { variant: 'secondary', label: level }
+  return <Badge bg={config.variant}>{config.label}</Badge>
+}
+
 export function ServiceTypeBadge({ type }: { type: 'proposal' | 'missive' | null | undefined }) {
   if (!type) return null
   return (
