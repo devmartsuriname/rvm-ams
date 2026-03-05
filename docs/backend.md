@@ -27,6 +27,7 @@
 | 12 | DMS-Light UI — Document storage + versioning + confidentiality UI | CLOSED |
 | 13 | Agenda Item Management UI — Meeting tabs, agenda CRUD, decision linking | CLOSED |
 | 16 | RETURN NULL Pattern Unification + UX Exception Handling | CLOSED |
+| 14 | Decision List & Report Generation | CLOSED |
 
 ## Database Architecture
 
