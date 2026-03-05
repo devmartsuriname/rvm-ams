@@ -30,6 +30,7 @@
 | 14 | Decision List & Report Generation | CLOSED |
 | 15 | Role-Specific Dashboards | CLOSED |
 | 17 | Advanced Search & Filtering | CLOSED |
+| 17R | Remediation: Decision date range filter (created_at) + Agenda meeting reference filter (meeting_id) | CLOSED |
 
 ## Database Architecture
 

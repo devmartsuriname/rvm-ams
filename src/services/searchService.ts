@@ -113,12 +113,18 @@ async function searchAgendaItems(pattern: string, filters?: SearchFilters) {
 async function searchDecisions(pattern: string, filters?: SearchFilters) {
   let q = supabase
     .from('rvm_decision')
-    .select('id, decision_text, decision_status, is_final, agenda_item_id, rvm_agenda_item(agenda_number, meeting_id, rvm_meeting(meeting_date))')
+    .select('id, decision_text, decision_status, is_final, agenda_item_id, created_at, rvm_agenda_item(agenda_number, meeting_id, rvm_meeting(meeting_date))')
     .ilike('decision_text', pattern)
     .limit(10)
 
   if (filters?.decisionStatus) {
     q = q.eq('decision_status', filters.decisionStatus)
+  }
+  if (filters?.decisionDateFrom) {
+    q = q.gte('created_at', filters.decisionDateFrom)
+  }
+  if (filters?.decisionDateTo) {
+    q = q.lte('created_at', `${filters.decisionDateTo}T23:59:59`)
   }
 
   const { data, error } = await q
