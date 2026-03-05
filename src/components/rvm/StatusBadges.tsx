@@ -118,6 +118,21 @@ export function ServiceTypeBadge({ type }: { type: 'proposal' | 'missive' | null
  *  - Deferred → info
  *  - Rejected → danger
  */
+type AgendaItemStatus = Enums<'agenda_item_status'>
+
+const agendaItemStatusMap: Record<AgendaItemStatus, { variant: string; label: string }> = {
+  scheduled: { variant: 'primary', label: 'Scheduled' },
+  presented: { variant: 'success', label: 'Presented' },
+  withdrawn: { variant: 'secondary', label: 'Withdrawn' },
+  moved: { variant: 'info', label: 'Moved' },
+}
+
+export function AgendaItemStatusBadge({ status }: { status: AgendaItemStatus | null | undefined }) {
+  if (!status) return null
+  const config = agendaItemStatusMap[status]
+  return <Badge bg={config.variant}>{config.label}</Badge>
+}
+
 export function DecisionLifecycleBadge({
   status,
   isFinal,
