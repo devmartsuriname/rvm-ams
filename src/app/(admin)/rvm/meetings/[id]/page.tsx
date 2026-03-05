@@ -474,6 +474,22 @@ const MeetingDetailPage = () => {
         />
       )}
 
+      {/* Print-only Decision Report */}
+      {decisions && decisions.length > 0 && (
+        <div id="meeting-decision-report" className="d-none d-print-block">
+          <DecisionReport
+            decisions={decisions as any}
+            meetingInfo={meeting ? {
+              meeting_date: meeting.meeting_date,
+              meeting_type: meeting.meeting_type,
+              location: meeting.location,
+              status: meeting.status,
+            } : null}
+            title="Meeting Decision Report"
+          />
+        </div>
+      )}
+
       <Footer />
     </>
   )
