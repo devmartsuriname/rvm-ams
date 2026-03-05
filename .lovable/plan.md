@@ -1,142 +1,327 @@
 
+# Phase 11 — Illegal Attempt Logging Hardening
 
-# RVM-AMS System Implementation Status Report
-
-This is a READ-ONLY audit. No code changes will be made.
-
----
-
-## 1. System Overview
-
-**Product:** AMS – RVM Core (v1)
-**Purpose:** Governance-grade workflow and document management for the Council of Ministers (Raad van Ministers)
-**Stack:** React 18 + TypeScript + Vite + Bootstrap 5 + Supabase (External Managed)
-**Phases Completed:** 1–11 (all CLOSED)
+**Authority:** Devmart Guardian Rules  
+**Mode:** Backend Hardening Only  
+**Scope:** Log blocked/illegal mutation attempts for governance-grade forensics
 
 ---
 
-## 2. Implemented Modules (FULLY IMPLEMENTED)
+## Pre-Condition Verification
 
-| Module | Frontend | Backend | Status |
-|--------|----------|---------|--------|
-| **Dashboard** | KPI cards (6), ApexCharts (2 donuts) | Parallelized Supabase queries via dashboardService | FULLY IMPLEMENTED |
-| **Dossiers** | List, Detail, Create Modal, Edit Form, Status Actions | CRUD service, RLS, status transitions, immutability guard | FULLY IMPLEMENTED |
-| **Meetings** | List, Detail, Create Modal, Edit Form, Status Actions | CRUD service, RLS, status transitions | FULLY IMPLEMENTED |
-| **Tasks** | List, Create Modal, Edit Form, Status Actions | CRUD service, RLS, status transitions, assignee validation | FULLY IMPLEMENTED |
-| **Decisions** | List, Create Modal, Edit Form, Status Actions, Chair Approval Actions, Decision Management Modal | CRUD service, RLS, Chair gate enforcement, finalization lock | FULLY IMPLEMENTED |
-| **Audit Log** | Filterable table with expandable JSON payloads, role-gated | 20 triggers across 8 tables, append-only audit_event | FULLY IMPLEMENTED |
-| **Chair Gate Enforcement** | ChairApprovalActions component, DecisionStatusActions (chair-only visibility) | enforce_chair_only_decision_status, enforce_chair_approval_gate triggers | FULLY IMPLEMENTED |
-| **Status Lifecycle Engine** | StatusBadges, per-entity status action components | status_transitions reference table, validate_status_transition(), BEFORE UPDATE triggers on all domain tables | FULLY IMPLEMENTED |
-| **Illegal Attempt Logging** | N/A (backend-only) | rvm_illegal_attempt_log table, log_illegal_attempt() SECURITY DEFINER, 5 triggers updated (RETURN NULL pattern), get_latest_violation() RPC | FULLY IMPLEMENTED |
-| **Role Based Access Control** | useUserRoles hook (UI hints), role-gated UI elements | 9 roles in app_role, user_role junction, RLS on all 12+ tables, has_role/has_any_role/is_super_admin functions | FULLY IMPLEMENTED |
-| **Authentication** | Sign-in page, AuthProvider context, session management | Supabase Auth, app_user + super_admin_bootstrap tables | FULLY IMPLEMENTED |
+- Phase 10A: CLOSED
+- Phase 10B: CLOSED
+- Phase 10C: CLOSED
+- Phase 10D: CLOSED
+- No open regressions (ApexCharts TS warning remains out-of-scope)
+- Restore point `RP-P11-illegal-attempts-pre.md` will be created first
 
 ---
 
-## 3. Partially Implemented Modules
+## Current State Assessment
 
-| Module | What Exists | What Is Missing | Reason |
-|--------|-------------|-----------------|--------|
-| **Reporting / Analytics** | Dashboard with KPI counts and 2 status distribution charts | No decision list generation, no short meeting report generation, no distribution tracking, no PDF export | PRD specifies decision lists and short reports as operational outputs — not yet built |
-| **Search / Filtering** | Dossier list supports status/service_type/urgency/text search filters | No global search, no cross-module search, no saved filters | Basic filtering exists per PRD minimum; advanced search deferred |
+Five enforcement triggers currently block illegal mutations via `RAISE EXCEPTION`:
 
----
+| Trigger | Table | Blocks | Rule Label |
+|---------|-------|--------|------------|
+| `enforce_decision_status_transition` | `rvm_decision` | Updates when `is_final = true`; invalid status transitions | `DECISION_FINAL_LOCK`, `DECISION_INVALID_TRANSITION` |
+| `enforce_chair_only_decision_status` | `rvm_decision` | Non-chair users changing `decision_status` | `CHAIR_ONLY_STATUS` |
+| `enforce_chair_approval_gate` | `rvm_decision` | Finalization without chair approval fields | `CHAIR_GATE_MISSING` |
+| `enforce_document_lock_on_decision` | `rvm_document_version` | INSERT when linked decision is finalized | `DOCUMENT_FINAL_LOCK` |
+| `enforce_dossier_status_transition` | `rvm_dossier` | Invalid dossier status transitions (includes regression) | `DOSSIER_INVALID_TRANSITION` |
 
-## 4. Database-Only Components
+All triggers use `RAISE EXCEPTION` which aborts the transaction. The logging call must happen **before** the RAISE so the log INSERT is part of a nested autonomous action (or uses a separate mechanism).
 
-| Component | Schema Exists | UI Exists | Notes |
-|-----------|--------------|-----------|-------|
-| **rvm_document** | Table + RLS policies + confidentiality_level enum | No UI for document upload/browse | Schema ready, no DMS-Light UI |
-| **rvm_document_version** | Table + RLS + enforce_document_lock_on_decision trigger | No UI | Versioning schema in place |
-| **rvm_item** | Table + RLS | Created during dossier creation only; no standalone item management UI | Linked automatically in dossier create flow |
-| **missive_keyword** | Table + RLS (reference data) | No keyword management UI | Reference data, admin-only |
+### Critical Design Decision: Exception vs. Logging Order
 
----
+PostgreSQL `RAISE EXCEPTION` rolls back the entire transaction, including any prior INSERTs in the same transaction. To solve this:
 
-## 5. Deferred Features
+- Use `dblink` for autonomous transactions (adds dependency)
+- OR use a **pre-exception SAVEPOINT** pattern
+- OR accept that logging happens in a **separate SECURITY DEFINER function that uses `dblink_exec` to local**
 
-| Feature | Reason | Reference |
-|---------|--------|-----------|
-| **DMS-Light UI** (document upload, browse, version management) | Scope limitation — schema created in Phase 6 but UI deferred | Phase 6 closure notes |
-| **Agenda Item Write Flows** (create/edit agenda items from UI) | Architecture dependency — agenda items created via meeting detail but no standalone CRUD UI | Phase 4 notes |
-| **Decision List Generation** (official PDF/printable decision lists) | Future phase — requires template engine | PRD §5.5 |
-| **Short Meeting Report Generation** | Future phase | PRD §5.5 |
-| **Distribution Tracking** (decision list distribution logging) | Future phase | PRD §5.5 |
-| **Bottleneck Detection** (processing time analytics) | Future phase — requires historical data analysis | PRD §8 / System Architecture §4.2 |
-| **Role-specific Dashboards** (Chair vs Secretary views) | UI pending — single dashboard serves all roles currently | PRD §8 |
-| **User/Role Management UI** | Security — admin operations done directly in Supabase | By design |
-| **Exception-style Error Messages** (unify RETURN NULL → user-facing errors) | Accepted limitation from Phase 11 | Phase 11 closure |
+**Recommended approach:** Use a `SECURITY DEFINER` function with `dblink` to insert the log record in an autonomous transaction. If `dblink` is not available or too complex, an alternative is to catch exceptions in the application layer. However, per the spec requirement "Must not depend on application layer", `dblink` is the correct approach.
 
----
+**Simpler alternative (recommended):** Since Supabase PostgreSQL has the `pg_background` or we can use a simpler pattern — log BEFORE the RAISE using a separate `BEGIN...EXCEPTION` block inside the logging function itself that commits via `dblink`. Actually, the simplest reliable pattern for Supabase is:
 
-## 6. Out-of-Scope Items (per PRD and Scope Governance)
+Use **`PERFORM` with a SECURITY DEFINER function that itself opens a new `dblink` connection to localhost** to insert the log autonomously. If `dblink` is unavailable, we fall back to a **background worker pattern** or accept that the log is best-effort.
 
-| Item | Explicit Exclusion Source |
-|------|-------------------------|
-| VP personal workflow / VP decision system | Scope Governance §3.2 |
-| Cabinet Director / Directorate Cabinet VP | Scope Governance §3.2 |
-| Protocol / Volkscommunicatie | Scope Governance §3.2 |
-| Cross-departmental document sharing | PRD §6.2 |
-| External publication / communication modules | PRD §3.2 |
-| Policy execution after RVM decision | PRD §3.2 |
-| Cabinet-wide DMS | Scope Governance §6 |
-| Standalone DMS workflows | PRD §6.2 |
-| VP-Flow integration | System Architecture §4.5 (future) |
-| DELETE operations on domain tables | PRD / Phase 8D (skipped for audit integrity) |
-| Notification / Messaging system | Not in PRD v1 scope |
+**Pragmatic approach chosen:** Since `dblink` may not be enabled on this Supabase instance, and per rule D ("if logging fails, the original block still happens"), we will:
 
----
+1. Attempt the log INSERT inside a nested `BEGIN...EXCEPTION WHEN OTHERS THEN NULL; END;` block
+2. Then RAISE the original exception
+3. Since RAISE rolls back, the log would also roll back...
 
-## 7. Security & Governance Status
+This means we need `dblink` or must accept application-layer logging. Let me check if `dblink` is available.
 
-| Check | Status | Evidence |
-|-------|--------|----------|
-| RLS policies active on all tables | **PASS** | All 12+ tables have RLS enabled with restrictive policies |
-| Chair-only decision rules enforced | **PASS** | enforce_chair_only_decision_status trigger (SECURITY DEFINER) |
-| Decision final lock enforced | **PASS** | enforce_decision_status_transition trigger blocks all updates when is_final=true |
-| Illegal mutation logging active | **PASS** | 5 triggers log to rvm_illegal_attempt_log via RETURN NULL pattern; verified with 4 persistent log entries |
-| No recursion triggers on log table | **PASS** | 0 triggers on rvm_illegal_attempt_log |
-| Log table protected | **PASS** | INSERT/UPDATE/DELETE blocked by RLS; SELECT restricted to chair_rvm, audit_readonly, admin_reporting |
-| No schema drift since Phase 11 | **PASS** | Last migration: 20260226031012 (Phase 11 closure) |
-| Audit trail append-only | **PASS** | audit_event has no UPDATE/DELETE policies; INSERT only via SECURITY DEFINER trigger |
-| Super admin bypass isolated | **PASS** | super_admin_bootstrap table with expiry; is_super_admin() function |
-| Dossier immutability guard | **PASS** | enforce_dossier_immutability trigger + RLS prevents updates on decided/archived/cancelled |
-| Document lock on finalized decision | **PASS** | enforce_document_lock_on_decision trigger |
+**Final pragmatic decision:** Given Supabase constraints, the most reliable approach is:
+
+- Create the `rvm_illegal_attempt_log` table
+- Create the `log_illegal_attempt()` SECURITY DEFINER function
+- Modify triggers to call `log_illegal_attempt()` **before** `RAISE EXCEPTION`
+- Wrap the log call in `BEGIN...EXCEPTION WHEN OTHERS THEN NULL; END;`
+- **Key insight:** The RAISE EXCEPTION will roll back the log INSERT in the same transaction. To work around this, we use **`pg_notify`** to emit a notification, and a **separate trigger on a helper channel** or simply accept that in PostgreSQL without `dblink`, autonomous transactions are not natively supported.
+
+**REVISED FINAL APPROACH:** The most governance-compliant solution without `dblink`:
+
+Replace `RAISE EXCEPTION` with `RAISE EXCEPTION` but **restructure the triggers to use a two-phase pattern**:
+1. Use an **edge function** as a webhook listener? No — spec says "must not depend on application layer."
+
+**ACTUAL SIMPLEST CORRECT APPROACH:**
+
+After careful analysis, the correct PostgreSQL-native pattern is:
+
+- The triggers **cannot** log and then raise in the same transaction (the raise rolls back the log).
+- However, we can use **`RAISE ... USING DETAIL`** and capture the exception at the **statement level** — but that requires app-layer cooperation.
+- **The only pure-database solution is `dblink`.**
+
+We will:
+1. Check if `dblink` extension is available (it is on most Supabase instances)
+2. If yes: enable `dblink` extension, use it for autonomous log inserts
+3. If no: document this as a known limitation and defer to app-layer logging
 
 ---
 
-## 8. Architecture Alignment
+## Implementation Plan
 
-| Architecture Layer | PRD Requirement | Current State | Aligned? |
-|-------------------|-----------------|---------------|----------|
-| Presentation Layer | RVM-only UI with role-based visibility | 7 RVM routes + dashboard, useUserRoles hook for UI gating | Yes |
-| Application Layer | Workflow & Logic | Service layer (6 services), React Query hooks (10+ hooks), handleGuardedUpdate for RETURN NULL | Yes |
-| Domain Modules | Dossier, Meeting, Decision, Task, Agenda, Document | All domain tables exist; Dossier/Meeting/Decision/Task have full CRUD; Agenda/Document partial | Partial |
-| Data Layer | PostgreSQL + RLS | 12+ tables, 20 triggers, 11+ functions, comprehensive RLS | Yes |
-| Security & Audit Layer | Cross-cutting | audit_event + rvm_illegal_attempt_log + RLS + role functions | Yes |
+### Task 1 — Create `rvm_illegal_attempt_log` Table
+
+**Migration SQL:**
+
+```sql
+-- Enable dblink extension (available on Supabase)
+CREATE EXTENSION IF NOT EXISTS dblink;
+
+CREATE TABLE public.rvm_illegal_attempt_log (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  created_at timestamptz NOT NULL DEFAULT now(),
+  actor_auth_id uuid,
+  actor_role text,
+  entity_type text NOT NULL,
+  entity_id uuid,
+  action text NOT NULL,
+  rule text NOT NULL,
+  reason text NOT NULL,
+  payload jsonb DEFAULT '{}'::jsonb,
+  request_id text
+);
+
+-- RLS
+ALTER TABLE public.rvm_illegal_attempt_log ENABLE ROW LEVEL SECURITY;
+
+-- No direct INSERT from client
+CREATE POLICY illegal_log_no_insert ON public.rvm_illegal_attempt_log
+  FOR INSERT TO authenticated WITH CHECK (false);
+
+-- SELECT for governance roles only
+CREATE POLICY illegal_log_select ON public.rvm_illegal_attempt_log
+  FOR SELECT TO authenticated
+  USING (
+    has_any_role(ARRAY['chair_rvm', 'audit_readonly', 'admin_reporting'])
+    OR is_super_admin()
+  );
+
+-- No UPDATE/DELETE
+CREATE POLICY illegal_log_no_update ON public.rvm_illegal_attempt_log
+  FOR UPDATE TO authenticated USING (false);
+
+CREATE POLICY illegal_log_no_delete ON public.rvm_illegal_attempt_log
+  FOR DELETE TO authenticated USING (false);
+```
+
+### Task 2 — Create `log_illegal_attempt()` SECURITY DEFINER Function
+
+This function uses `dblink` to insert the log in an autonomous transaction so it persists even when the calling trigger raises an exception.
+
+```sql
+CREATE OR REPLACE FUNCTION public.log_illegal_attempt(
+  p_entity_type text,
+  p_entity_id uuid,
+  p_action text,
+  p_rule text,
+  p_reason text,
+  p_payload jsonb DEFAULT '{}'::jsonb
+) RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO 'public'
+AS $$
+DECLARE
+  v_auth_id uuid;
+  v_role text;
+  v_conn_str text;
+BEGIN
+  -- Derive actor from auth context (cannot be spoofed)
+  v_auth_id := auth.uid();
+
+  -- Get first role
+  BEGIN
+    SELECT ur.role_code INTO v_role
+    FROM public.user_role ur
+    JOIN public.app_user au ON au.id = ur.user_id
+    WHERE au.auth_id = v_auth_id
+    LIMIT 1;
+  EXCEPTION WHEN OTHERS THEN
+    v_role := NULL;
+  END;
+
+  -- Autonomous insert via dblink (survives caller's RAISE EXCEPTION)
+  BEGIN
+    v_conn_str := format(
+      'dbname=%s port=%s host=%s user=%s password=%s',
+      current_database(), 
+      current_setting('port', true),
+      'localhost',
+      current_user,
+      '' -- service role connection
+    );
+    
+    PERFORM dblink_exec(
+      v_conn_str,
+      format(
+        'INSERT INTO public.rvm_illegal_attempt_log 
+         (actor_auth_id, actor_role, entity_type, entity_id, action, rule, reason, payload)
+         VALUES (%L, %L, %L, %L, %L, %L, %L, %L)',
+        v_auth_id, v_role, p_entity_type, p_entity_id, 
+        p_action, p_rule, p_reason, p_payload::text
+      )
+    );
+  EXCEPTION WHEN OTHERS THEN
+    -- Rule D: if logging fails, swallow — the block still happens
+    NULL;
+  END;
+END;
+$$;
+```
+
+**Note:** If `dblink` is not available or the connection string cannot authenticate, the logging will silently fail (per Rule D) and the enforcement block still occurs. We will test this during Task 4. If `dblink` fails, we will document a fallback approach using application-layer error interception in the service layer.
+
+### Task 3 — Integrate Logging into Existing Triggers
+
+Update 5 trigger functions to call `log_illegal_attempt()` before each `RAISE EXCEPTION`. No changes to blocking logic.
+
+**3a. `enforce_decision_status_transition()`** — 2 block points:
+
+```sql
+-- Before: RAISE EXCEPTION 'Cannot modify finalized decision...'
+-- After:
+PERFORM public.log_illegal_attempt(
+  'rvm_decision', OLD.id, 'UPDATE', 'DECISION_FINAL_LOCK',
+  'Attempted update on finalized decision',
+  jsonb_build_object('old', to_jsonb(OLD), 'new', to_jsonb(NEW))
+);
+RAISE EXCEPTION 'Cannot modify finalized decision (is_final = true)';
+
+-- Before: RAISE EXCEPTION 'Invalid decision transition...'
+-- After:
+PERFORM public.log_illegal_attempt(
+  'rvm_decision', OLD.id, 'UPDATE', 'DECISION_INVALID_TRANSITION',
+  format('Invalid transition: %s -> %s', OLD.decision_status, NEW.decision_status),
+  jsonb_build_object('old_status', OLD.decision_status, 'new_status', NEW.decision_status)
+);
+RAISE EXCEPTION 'Invalid decision transition: % -> %', OLD.decision_status, NEW.decision_status;
+```
+
+**3b. `enforce_chair_only_decision_status()`** — 1 block point:
+
+```sql
+PERFORM public.log_illegal_attempt(
+  'rvm_decision', OLD.id, 'UPDATE', 'CHAIR_ONLY_STATUS',
+  'Non-chair user attempted decision_status change',
+  jsonb_build_object('old_status', OLD.decision_status, 'new_status', NEW.decision_status, 'actor_roles', v_roles)
+);
+RAISE EXCEPTION 'Only chair_rvm may change decision_status';
+```
+
+**3c. `enforce_chair_approval_gate()`** — 1 block point:
+
+```sql
+PERFORM public.log_illegal_attempt(
+  'rvm_decision', NEW.id, 'UPDATE', 'CHAIR_GATE_MISSING',
+  'Finalization attempted without chair approval',
+  jsonb_build_object('chair_approved_by', NEW.chair_approved_by, 'chair_approved_at', NEW.chair_approved_at)
+);
+RAISE EXCEPTION 'Decision cannot be finalized without chair approval';
+```
+
+**3d. `enforce_document_lock_on_decision()`** — 1 block point:
+
+```sql
+PERFORM public.log_illegal_attempt(
+  'rvm_document_version', NEW.id, 'INSERT', 'DOCUMENT_FINAL_LOCK',
+  'Document version insert blocked by finalized decision',
+  jsonb_build_object('document_id', NEW.document_id, 'decision_id', v_decision_id)
+);
+RAISE EXCEPTION 'Cannot add versions to document linked to finalized decision';
+```
+
+**3e. `enforce_dossier_status_transition()`** — 1 block point:
+
+```sql
+PERFORM public.log_illegal_attempt(
+  'rvm_dossier', OLD.id, 'UPDATE', 'DOSSIER_INVALID_TRANSITION',
+  format('Invalid dossier transition: %s -> %s', OLD.status, NEW.status),
+  jsonb_build_object('old_status', OLD.status, 'new_status', NEW.status)
+);
+RAISE EXCEPTION 'Invalid dossier transition: % -> %', OLD.status, NEW.status;
+```
+
+**No recursion risk:** `rvm_illegal_attempt_log` has no triggers attached to it. The `log_audit_event()` trigger is only on domain tables, not on the log table.
+
+### Task 4 — Testing Strategy
+
+We will use SQL-based tests via the Supabase SQL editor (or edge function tests) to verify:
+
+| Test Case | Expected Block | Expected Log Entry |
+|-----------|---------------|-------------------|
+| UPDATE `decision_text` on finalized decision | `RAISE EXCEPTION` | Row with rule=`DECISION_FINAL_LOCK` |
+| Secretary changes `decision_status` | `RAISE EXCEPTION` | Row with rule=`CHAIR_ONLY_STATUS` |
+| INSERT `rvm_document_version` when linked decision is final | `RAISE EXCEPTION` | Row with rule=`DOCUMENT_FINAL_LOCK` |
+| Dossier status regression `decided -> draft` | `RAISE EXCEPTION` | Row with rule=`DOSSIER_INVALID_TRANSITION` |
+
+If `dblink` autonomous transactions work: all 4 log entries will persist.  
+If `dblink` fails: enforcement still works (Rule D satisfied), and we document the gap.
 
 ---
 
-## 9. Estimated Completion Percentage
+## Files Created
 
-| Layer | Estimate | Notes |
-|-------|----------|-------|
-| **Core Governance Layer** (RLS, triggers, audit, enforcement) | **95%** | Fully operational; only missing: meeting/task/agenda_item triggers not yet using RETURN NULL pattern (still use RAISE EXCEPTION) |
-| **Core Modules** (Dossier, Meeting, Decision, Task) | **90%** | Full CRUD + status lifecycle; missing: decision list generation, report generation |
-| **User Interface** | **75%** | All core module UIs exist; missing: DMS-Light UI, role-specific dashboards, report generation UI, agenda item standalone CRUD |
-| **Operational Workflows** | **70%** | Intake→Preparation→Agenda→Decision→Archive flow works at data level; missing: document upload UI, decision list/report output, distribution tracking |
-| **Overall System** | **~80%** | Core governance architecture is complete and battle-tested; remaining work is primarily UI for deferred modules and reporting outputs |
+| File | Purpose |
+|------|---------|
+| `Project Restore Points/RP-P11-illegal-attempts-pre.md` | Pre-implementation restore point |
+| `Project Restore Points/RP-P11-illegal-attempts-post.md` | Post-implementation restore point |
 
----
+## Files Modified
 
-## 10. Recommended Next Phases
+| File | Change |
+|------|--------|
+| New migration SQL | Table + function + trigger updates |
+| `docs/backend.md` | Phase 11 status line |
+| `docs/architecture.md` | Phase 11 note |
 
-| Priority | Phase | Description | Complexity |
-|----------|-------|-------------|------------|
-| 1 | **Phase 12: DMS-Light UI** | Document upload, browse, version management UI for dossiers and decisions | Medium |
-| 2 | **Phase 13: Agenda Item Management UI** | Standalone agenda item CRUD, drag-reorder, linking dossiers to meetings | Medium |
-| 3 | **Phase 14: Decision List & Report Generation** | Generate official decision lists and short meeting reports (PDF/printable) | High |
-| 4 | **Phase 15: Role-Specific Dashboards** | Chair RVM dashboard (urgent matters, decision overview) vs Secretary dashboard (bottlenecks, processing times) | Medium |
-| 5 | **Phase 16: RETURN NULL Pattern Unification** | Extend Phase 11 RETURN NULL + logging pattern to meeting/task/agenda_item triggers for consistency | Low |
-| 6 | **Phase 17: Advanced Search & Filtering** | Global cross-module search, saved filters, date range filters | Medium |
+## No Files Modified (Frontend)
 
+Zero UI changes. Zero route changes. Zero component changes.
+
+## Scope Boundary
+
+- Zero UI changes
+- Zero new workflow states
+- Zero new routes
+- Zero new dependencies (dblink is a core PostgreSQL extension)
+- Zero changes to existing allowed mutation flows
+- Only: logging blocked attempts
+
+## Risk Assessment
+
+| Risk | Mitigation |
+|------|-----------|
+| `dblink` not available on Supabase instance | Logging silently fails per Rule D; enforcement unaffected |
+| `dblink` connection string authentication | Test during Task 4; fallback to app-layer documented |
+| Recursive trigger loops | `rvm_illegal_attempt_log` has zero triggers — no recursion possible |
+| Performance overhead on blocked mutations | Minimal — only fires on exception path (rare events) |
+
+## Governance Declaration Target
+
+**FULLY IMPLEMENTED** — if `dblink` autonomous transactions work.  
+**PARTIALLY IMPLEMENTED** — if `dblink` fails, with enforcement intact and gap documented for future resolution.
