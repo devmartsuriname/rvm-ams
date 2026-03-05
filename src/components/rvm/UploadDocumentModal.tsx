@@ -27,6 +27,7 @@ type Props = {
   onHide: () => void
   dossierId: string
   decisions?: { id: string; decision_text: string }[]
+  agendaItems?: { id: string; title_override?: string | null; agenda_number: number }[]
 }
 
 const UploadDocumentModal = ({ show, onHide, dossierId, decisions = [] }: Props) => {
