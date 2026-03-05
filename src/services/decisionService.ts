@@ -114,11 +114,15 @@ export const decisionService = {
         decision_status,
         is_final,
         created_at,
+        updated_at,
+        chair_approved_at,
+        chair_approved_by,
         rvm_agenda_item!inner(
           id,
           agenda_number,
           meeting_id,
-          rvm_dossier:dossier_id(id, dossier_number, title)
+          rvm_dossier:dossier_id(id, dossier_number, title, sender_ministry),
+          rvm_meeting:meeting_id(id, meeting_date, meeting_type, status)
         )
       `)
       .order('created_at', { ascending: false })

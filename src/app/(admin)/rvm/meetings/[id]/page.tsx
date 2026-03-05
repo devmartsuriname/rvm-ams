@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import Footer from '@/components/layout/Footer'
 import PageTitle from '@/components/PageTitle'
 import { Card, CardBody, CardHeader, Row, Col, Table, Badge, Button, Tabs, Tab } from 'react-bootstrap'
@@ -16,6 +16,8 @@ import CreateDecisionModal from '@/components/rvm/CreateDecisionModal'
 import DecisionManagementModal from '@/components/rvm/DecisionManagementModal'
 import CreateAgendaItemModal from '@/components/rvm/CreateAgendaItemModal'
 import { getErrorMessage } from '@/utils/rls-error'
+import DecisionReport from '@/components/rvm/DecisionReport'
+import IconifyIcon from '@/components/wrapper/IconifyIcon'
 import { toast } from 'react-toastify'
 import type { Enums } from '@/integrations/supabase/types'
 
@@ -363,8 +365,25 @@ const MeetingDetailPage = () => {
         {/* ─── Tab 3: Decisions ─── */}
         <Tab eventKey="decisions" title={<>Decisions <Badge bg="primary" className="ms-1">{decisions?.length ?? 0}</Badge></>}>
           <Card>
-            <CardHeader>
+            <CardHeader className="d-flex justify-content-between align-items-center">
               <h5 className="card-title mb-0">Meeting Decisions</h5>
+              {decisions && decisions.length > 0 && (
+                <Button
+                  variant="outline-primary"
+                  size="sm"
+                  onClick={() => {
+                    const reportDiv = document.getElementById('meeting-decision-report')
+                    if (reportDiv) reportDiv.classList.remove('d-none')
+                    setTimeout(() => {
+                      window.print()
+                      if (reportDiv) reportDiv.classList.add('d-none')
+                    }, 200)
+                  }}
+                >
+                  <IconifyIcon icon="bx:printer" className="me-1" />
+                  Print Decision Report
+                </Button>
+              )}
             </CardHeader>
             <CardBody className="p-0">
               {!decisions || decisions.length === 0 ? (
@@ -453,6 +472,22 @@ const MeetingDetailPage = () => {
           agendaItemId={manageDecisionAgendaId}
           agendaNumber={manageDecisionAgendaNum}
         />
+      )}
+
+      {/* Print-only Decision Report */}
+      {decisions && decisions.length > 0 && (
+        <div id="meeting-decision-report" className="d-none d-print-block">
+          <DecisionReport
+            decisions={decisions as any}
+            meetingInfo={meeting ? {
+              meeting_date: meeting.meeting_date,
+              meeting_type: meeting.meeting_type,
+              location: meeting.location,
+              status: meeting.status,
+            } : null}
+            title="Meeting Decision Report"
+          />
+        </div>
       )}
 
       <Footer />

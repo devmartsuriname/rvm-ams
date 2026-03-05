@@ -47,7 +47,7 @@ Database:
 
 ## Phase Completion Status
 
-All 9 phases + Phase 9B + Phase 9C CLOSED as of 2026-02-26. Phase 10A–10D CLOSED. Phase 11 (Illegal Attempt Logging Hardening) CLOSED. Phase 12 (DMS-Light UI) CLOSED. Phase 13 (Agenda Item Management UI) CLOSED. Phase 16 (RETURN NULL Pattern Unification + UX Exception Handling) CLOSED — all 9 enforcement triggers now use unified RETURN NULL + `log_illegal_attempt` pattern; all 10 mutation service methods use `handleGuardedUpdate()`.
+All 9 phases + Phase 9B + Phase 9C CLOSED as of 2026-02-26. Phase 10A–10D CLOSED. Phase 11 (Illegal Attempt Logging Hardening) CLOSED. Phase 12 (DMS-Light UI) CLOSED. Phase 13 (Agenda Item Management UI) CLOSED. Phase 16 (RETURN NULL Pattern Unification + UX Exception Handling) CLOSED. Phase 14 (Decision List & Report Generation) CLOSED — enhanced global decision register with sorting, meeting filter, responsible unit column; printable decision reports with signature placeholders for both meeting-scoped and global register views.
 
 ## Implemented Modules
 
