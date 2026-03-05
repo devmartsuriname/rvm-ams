@@ -13,6 +13,12 @@ export const MENU_ITEMS: MenuItemType[] = [
     url: '/dashboards',
   },
   {
+    key: 'search',
+    label: 'Search',
+    icon: 'solar:magnifer-outline',
+    url: '/search',
+  },
+  {
     key: 'rvm-section',
     label: 'RVM CORE',
     isTitle: true,

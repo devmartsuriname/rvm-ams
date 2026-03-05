@@ -1,6 +1,6 @@
 # AMS-RVM System Architecture
 
-**Last Updated:** 2026-03-05 (Phase 16)
+**Last Updated:** 2026-03-05 (Phase 17)
 
 ---
 
@@ -8,6 +8,7 @@
 
 - **Frontend:** React 18 + TypeScript + Vite
 - **Phase 15:** Role-specific dashboards (Chair/Secretary/Analyst) with role-based rendering via `useUserRoles()` hook. No new routes — existing `/dashboards` conditionally renders the appropriate dashboard variant.
+- **Phase 17:** Global search & advanced filtering. Topbar search wired to `searchGovernanceEntities()` with dropdown results. Dedicated `/search` page with filter panel. All queries RLS-governed, parallel execution, max 10 results per entity.
 - **UI Framework:** Bootstrap 5 + React-Bootstrap (DarkOne Admin theme)
 - **State:** TanStack React Query (server state) + React Context (auth/layout)
 - **Backend:** Supabase (Lovable Cloud) — PostgreSQL + RLS + Edge Functions

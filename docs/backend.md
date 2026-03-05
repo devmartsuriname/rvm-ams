@@ -1,6 +1,6 @@
 # AMS-RVM Backend Status
 
-**Last Updated:** 2026-03-05 (Phase 16)
+**Last Updated:** 2026-03-05 (Phase 17)
 
 ---
 
@@ -29,6 +29,7 @@
 | 16 | RETURN NULL Pattern Unification + UX Exception Handling | CLOSED |
 | 14 | Decision List & Report Generation | CLOSED |
 | 15 | Role-Specific Dashboards | CLOSED |
+| 17 | Advanced Search & Filtering | CLOSED |
 
 ## Database Architecture
 
