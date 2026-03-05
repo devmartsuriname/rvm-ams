@@ -100,15 +100,13 @@ export const taskService = {
    * RLS enforces: own tasks or secretary_rvm/deputy_secretary
    */
   async updateTask(id: string, data: TaskUpdate) {
-    const { data: updated, error } = await supabase
+    const result = await supabase
       .from('rvm_task')
       .update(data)
       .eq('id', id)
       .select()
-      .single()
 
-    if (error) throw error
-    return updated
+    return handleGuardedUpdate(result, 'rvm_task', id)
   },
 
   /**
