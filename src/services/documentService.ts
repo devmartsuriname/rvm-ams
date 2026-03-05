@@ -1,5 +1,6 @@
 import { supabase } from '@/integrations/supabase/client'
 import type { Tables, Enums } from '@/integrations/supabase/types'
+import { handleGuardedUpdate } from '@/utils/rls-error'
 
 export type RvmDocument = Tables<'rvm_document'>
 export type RvmDocumentVersion = Tables<'rvm_document_version'>
