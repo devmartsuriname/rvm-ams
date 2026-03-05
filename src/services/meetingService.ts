@@ -97,15 +97,13 @@ export const meetingService = {
    * RLS prevents update if status is closed
    */
   async updateMeeting(id: string, data: MeetingUpdate) {
-    const { data: updated, error } = await supabase
+    const result = await supabase
       .from('rvm_meeting')
       .update(data)
       .eq('id', id)
       .select()
-      .single()
 
-    if (error) throw error
-    return updated
+    return handleGuardedUpdate(result, 'rvm_meeting', id)
   },
 
   /**
