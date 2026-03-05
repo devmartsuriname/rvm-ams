@@ -73,7 +73,7 @@ const DossierDocumentsTab = ({ dossierId, decisions = [] }: Props) => {
             </div>
           ) : (
             <Table responsive hover className="mb-0">
-              <thead>
+              <thead className="table-light">
                 <tr>
                   <th>Title</th>
                   <th>Type</th>
@@ -81,6 +81,7 @@ const DossierDocumentsTab = ({ dossierId, decisions = [] }: Props) => {
                   <th>Version</th>
                   <th>Uploaded By</th>
                   <th>Date</th>
+                  <th>Linked Decision</th>
                   <th></th>
                 </tr>
               </thead>
