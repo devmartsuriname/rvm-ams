@@ -94,7 +94,9 @@ const DossierDocumentsTab = ({ dossierId, decisions = [] }: Props) => {
                     <td>v{(doc.current_version as any)?.version_number ?? '—'}</td>
                     <td>{(doc.creator as any)?.full_name ?? '-'}</td>
                     <td>{formatDate(doc.created_at)}</td>
-                    <td>
+                    <td className="text-truncate" style={{ maxWidth: 180 }}>
+                      {doc.decision_id ? (decisionMap.get(doc.decision_id)?.substring(0, 60) ?? doc.decision_id) : '—'}
+                    </td>
                       <Button
                         variant="outline-primary"
                         size="sm"
