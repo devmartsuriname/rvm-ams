@@ -32,6 +32,9 @@
 | 17 | Advanced Search & Filtering | CLOSED |
 | 17R | Remediation: Decision date range filter (created_at) + Agenda meeting reference filter (meeting_id) | CLOSED |
 | 18 | Final System Completion QA — full system validation, no code changes | CLOSED |
+| 18D | Demo/Library Dead Code Removal (61 files across 3 batches) | CLOSED |
+| 18E | SCSS & Demo Asset Cleanup (33 files deleted, 3 edited across 2 batches) | CLOSED |
+| 19 | Code Health Audit — report-only, no code modifications | CLOSED |
 
 ## Database Architecture
 
