@@ -2,7 +2,7 @@ import avatar1 from '@/assets/images/users/avatar-1.jpg'
 import IconifyIcon from '@/components/wrapper/IconifyIcon'
 import { useAuthContext } from '@/context/useAuthContext'
 import { Dropdown, DropdownHeader, DropdownItem, DropdownMenu, DropdownToggle } from 'react-bootstrap'
-import { Link } from 'react-router-dom'
+import React from 'react'
 
 const ProfileDropdown = () => {
   const { removeSession } = useAuthContext()
@@ -41,11 +41,9 @@ const ProfileDropdown = () => {
           <span className="align-middle">Lock screen</span>
         </DropdownItem>
         <div className="dropdown-divider my-1" />
-        <DropdownItem as={Link} className=" text-danger" to="/auth/sign-in">
+        <DropdownItem className=" text-danger" onClick={(e: React.MouseEvent) => { e.preventDefault(); removeSession(); }}>
           <IconifyIcon icon="solar:logout-3-outline" className="align-middle me-2 fs-18" />
-          <span className="align-middle" onClick={removeSession}>
-            Logout
-          </span>
+          <span className="align-middle">Logout</span>
         </DropdownItem>
       </DropdownMenu>
     </Dropdown>
