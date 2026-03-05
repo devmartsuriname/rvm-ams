@@ -35,6 +35,7 @@
 | 18D | Demo/Library Dead Code Removal (61 files across 3 batches) | CLOSED |
 | 18E | SCSS & Demo Asset Cleanup (33 files deleted, 3 edited across 2 batches) | CLOSED |
 | 19 | Code Health Audit — report-only, no code modifications | CLOSED |
+| 19C | Auth Logout UX Fix + Duplicate Loading Component Cleanup | CLOSED |
 
 ## Database Architecture
 

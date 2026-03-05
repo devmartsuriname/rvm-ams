@@ -6,7 +6,7 @@ import { Suspense } from 'react'
 const AuthLayout = ({ children }: ChildrenType) => {
   return (
     <ErrorBoundary>
-      <Suspense fallback={<FallbackLoading />}>{children}</Suspense>
+      <Suspense fallback={<LoadingFallback />}>{children}</Suspense>
     </ErrorBoundary>
   )
 }

@@ -2,7 +2,7 @@ import avatar1 from '@/assets/images/users/avatar-1.jpg'
 import IconifyIcon from '@/components/wrapper/IconifyIcon'
 import { useAuthContext } from '@/context/useAuthContext'
 import { Dropdown, DropdownHeader, DropdownItem, DropdownMenu, DropdownToggle } from 'react-bootstrap'
-import { Link } from 'react-router-dom'
+import React from 'react'
 
 const ProfileDropdown = () => {
   const { removeSession } = useAuthContext()
