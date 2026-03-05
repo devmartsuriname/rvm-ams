@@ -37,6 +37,9 @@ export function useUserRoles() {
     canApproveDecision: isSuperAdmin || hasRole('chair_rvm'),
     canFinalizeDecision: isSuperAdmin || hasRole('chair_rvm'),
 
+    // Document permissions
+    canUploadDocument: isSuperAdmin || hasAnyRole(['secretary_rvm', 'admin_dossier', 'admin_reporting']),
+
     // Audit permissions
     canViewAudit: isSuperAdmin || hasRole('audit_readonly'),
 
