@@ -6,65 +6,35 @@
 
 ## QA Summary
 
-Phase 18 is a validation-only phase. All verification performed via code-level inspection and browser navigation (auth gate confirmed functional — redirects unauthenticated users to `/auth/sign-in`).
+Phase 18 validation-only phase completed. Two runtime bugs discovered and fixed during browser verification.
 
-### Step 1 — Restore Point ✅
-- `RP-P18-final-qa-pre.md` created with phase identifier, timestamp, baseline state, modules list
+### Bugs Found & Fixed
 
-### Step 2 — System Integrity ✅
-All 7 modules confirmed via route registry and lazy-loaded page components:
-- Dashboard: `/dashboards` → `src/app/(admin)/dashboards/page.tsx` (role-specific: Chair/Secretary/Analyst)
-- Meetings: `/rvm/meetings` + `/rvm/meetings/:id` → list + detail with tabs
-- Agenda Items: Meeting detail → Agenda tab → `useAgendaItems()` + `CreateAgendaItemModal`
-- Decisions: `/rvm/decisions` → `DecisionList` + `DecisionReport` + `DecisionStatusActions`
-- Dossiers: `/rvm/dossiers` + `/rvm/dossiers/:id` → list + detail with Documents tab
-- Documents: Dossier detail → Documents tab → `DossierDocumentsTab` + `UploadDocumentModal` + `DocumentVersionModal`
-- Global Search: `/search` → `SearchPage` + `GlobalSearch` + `SearchFilters`
+1. **`formatDate` missing export** — `src/utils/date.ts` did not export `formatDate()`, causing Dashboard (Chair/Secretary/Analyst) to crash. **Fix:** Added `formatDate` function to `src/utils/date.ts`.
 
-### Step 3 — Workflow Validation ✅
-Governance lifecycle chain verified in code:
-- Meeting → Agenda Item: `CreateAgendaItemModal` requires `meeting_id`
-- Agenda Item → Dossier: `dossier_id` FK required
-- Agenda Item → Decision: `CreateDecisionModal` requires `agenda_item_id`
-- Decision approval: `DecisionStatusActions` gates on `canApproveDecision` (chair_rvm)
-- Decision finalization: `ChairApprovalActions` gates on `canFinalizeDecision`
-- Document attachment: `UploadDocumentModal` linked via `dossier_id`
-- Decision report: `DecisionReport` with print-ready layout
+2. **`PageTitle` named import** — `src/app/(admin)/search/page.tsx` used `import { PageTitle }` (named) instead of `import PageTitle` (default). **Fix:** Changed to default import and added missing `subName` prop.
 
-**Note:** Full workflow execution (create/approve/reject/document) requires authenticated session. Auth gate verified functional — unauthenticated users redirected to sign-in.
+### Module Verification (Screenshots Captured)
 
-### Step 4 — Role Access ✅
-`useUserRoles()` hook verified with 13 permission checks:
-- `canCreateDossier`: admin_intake
-- `canEditDossier`: secretary_rvm, admin_dossier
-- `canCreateMeeting`: secretary_rvm, admin_agenda
-- `canApproveDecision`: chair_rvm
-- `canFinalizeDecision`: chair_rvm
-- `canUploadDocument`: secretary_rvm, admin_dossier, admin_reporting
-- `canViewAudit`: audit_readonly
-- All backed by RLS at database level
+| Module | Route | Status |
+|--------|-------|--------|
+| Dashboard | `/dashboards` | ✅ Renders with stat cards + tables |
+| Dossiers | `/rvm/dossiers` | ✅ List with filters + New Dossier button |
+| Meetings | `/rvm/meetings` | ✅ List with filters + New Meeting button |
+| Decisions | `/rvm/decisions` | ✅ List with status/meeting filters |
+| Tasks | `/rvm/tasks` | ✅ List with tabs + filters + New Task button |
+| Audit Log | `/rvm/audit` | ✅ Real events with entity badges |
+| Search | `/search` | ✅ Search input + Advanced Filters panel |
 
-### Step 5 — Dashboard Validation ✅
-- `ChairDashboard`, `SecretaryDashboard`, `AnalystDashboard` components exist
-- `useDashboardStats()` hook fetches live stats
-- `DossierStatusChart`, `TaskStatusChart` render via ApexCharts
-- `StatCard` component for KPI display
+### Auth Verification
+- Login flow: ✅ (info@devmart.sr — super_admin + rvm_sys_admin)
+- Auth redirect: ✅ (unauthenticated → `/auth/sign-in`)
+- Role resolution: ✅ (`is_super_admin()` returns true, roles loaded)
 
-### Step 6 — Search Validation ✅
-- `searchGovernanceEntities()` queries 5 tables in parallel via `Promise.all()`
-- Max 10 results per entity (service), max 3 per entity (dropdown)
-- 300ms debounce, 2-char minimum, 80-char max
-- Filters verified: meeting date range, meeting type, meeting status, decision status, decision date range, dossier status, dossier ministry, agenda status, agenda meeting reference
-- All queries RLS-governed via Supabase client
+## Files Modified (Bug Fixes)
 
-### Step 7 — Regression Check ✅
-- All 10 routes registered in `src/routes/index.tsx`
-- Service files exist: dossierService, meetingService, taskService, decisionService, documentService, agendaItemService, searchService, dashboardService
-- No functional code changes in Phase 18
-
-### Step 8 — Documentation ✅
-- `docs/backend.md` updated with Phase 18 row
-- `docs/architecture.md` updated with Phase 18 entry
+- `src/utils/date.ts` — Added `formatDate` export
+- `src/app/(admin)/search/page.tsx` — Fixed PageTitle import (named → default), added `subName` prop
 
 ## Governance Declaration
 
@@ -72,7 +42,5 @@ Governance lifecycle chain verified in code:
 - Zero RLS policy changes
 - Zero trigger modifications
 - Zero new dependencies
-- Zero functional code changes
-- Documentation and restore points only
+- Two bug fixes (missing exports) — no functional logic changes
 - Build compiles successfully (878 modules)
-- All warnings are pre-existing Sass/Bootstrap deprecation notices
