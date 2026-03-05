@@ -38,6 +38,7 @@ const UploadDocumentModal = ({ show, onHide, dossierId, decisions = [], agendaIt
   const [docType, setDocType] = useState<Enums<'document_type'>>('attachment')
   const [confLevel, setConfLevel] = useState<Enums<'confidentiality_level'>>('standard_confidential')
   const [decisionId, setDecisionId] = useState('')
+  const [agendaItemId, setAgendaItemId] = useState('')
   const [file, setFile] = useState<File | null>(null)
 
   const onDrop = useCallback((accepted: File[]) => {
