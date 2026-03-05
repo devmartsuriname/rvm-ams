@@ -21,4 +21,62 @@
         box-shadow: none;
         margin: 0 !important;
     }
+
+    // Decision Report print styles
+    .decision-report {
+        display: block !important;
+        padding: 20px;
+        font-size: 12px;
+
+        .decision-report-header {
+            border-bottom: 2px solid #333;
+            padding-bottom: 12px;
+            margin-bottom: 20px;
+
+            h2, h4 {
+                margin: 0;
+                color: #000;
+            }
+        }
+
+        .decision-report-meeting-info {
+            background: #f8f9fa !important;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+        }
+
+        .decision-report-table {
+            width: 100%;
+            border-collapse: collapse;
+            page-break-inside: auto;
+
+            th {
+                background: #e9ecef !important;
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+                font-size: 11px;
+                padding: 6px 8px;
+            }
+
+            td {
+                padding: 6px 8px;
+                font-size: 11px;
+                vertical-align: top;
+            }
+
+            tr {
+                page-break-inside: avoid;
+            }
+        }
+
+        .decision-report-signatures {
+            page-break-before: auto;
+            margin-top: 40px;
+        }
+    }
+
+    // Hide non-report content when printing report
+    .d-print-block {
+        display: block !important;
+    }
 }
