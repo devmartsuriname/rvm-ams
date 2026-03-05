@@ -236,6 +236,10 @@ Deno.serve(async (req) => {
             if (!listData?.users || listData.users.length === 0) break;
             const match = listData.users.find((u) => u.email === seedUser.email);
             if (match) {
+              // Reset password so seed credentials work after force re-seed
+              await supabase.auth.admin.updateUserById(match.id, {
+                password: SEED_PASSWORD,
+              });
               userAuthIds.push(match.id);
               found = true;
             }
