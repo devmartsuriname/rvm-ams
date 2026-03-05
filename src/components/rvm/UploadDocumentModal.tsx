@@ -56,6 +56,7 @@ const UploadDocumentModal = ({ show, onHide, dossierId, decisions = [], agendaIt
     setDocType('attachment')
     setConfLevel('standard_confidential')
     setDecisionId('')
+    setAgendaItemId('')
     setFile(null)
   }
 
