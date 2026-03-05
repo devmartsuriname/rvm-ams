@@ -32,7 +32,7 @@ const SearchPage = () => {
 
   return (
     <>
-      <PageTitle title="Search" />
+      <PageTitle title="Search" subName="RVM-AMS" />
       <Row className="mb-3">
         <Col>
           <div className="position-relative">
