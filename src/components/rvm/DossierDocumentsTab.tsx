@@ -28,6 +28,7 @@ type Props = {
 const DossierDocumentsTab = ({ dossierId, decisions = [] }: Props) => {
   const { canUploadDocument } = useUserRoles()
   const { data: documents, isLoading, error, refetch } = useDocumentsByDossier(dossierId)
+  const decisionMap = new Map(decisions.map((d) => [d.id, d.decision_text]))
 
   const [showUpload, setShowUpload] = useState(false)
   const [selectedDoc, setSelectedDoc] = useState<DocumentWithVersion | null>(null)
