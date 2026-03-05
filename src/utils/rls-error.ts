@@ -85,7 +85,7 @@ export function getErrorMessage(error: unknown): string {
     if (msg.includes('Decision cannot be finalized without chair approval'))
       return 'Chair approval is required before finalizing a decision.'
 
-    // Phase 11 RETURN NULL violation reasons (from log)
+    // RETURN NULL violation reasons (from log — all triggers unified Phase 16)
     if (msg.includes('Cannot modify finalized decision'))
       return 'This decision is finalized and cannot be modified.'
     if (msg.includes('Only chair_rvm may change'))

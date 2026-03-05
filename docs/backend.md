@@ -81,7 +81,68 @@
 - This is an **intentional governance trade-off** to ensure persistent forensic logging on managed Supabase (where autonomous transactions via dblink are not available).
 - Enforcement remains at the database level; logging persists reliably in all cases.
 - The application service layer uses `handleGuardedUpdate()` + `get_latest_violation()` RPC to surface violation reasons to users.
-- **Future enhancement (optional, deferred):** Unify user-facing error semantics via standardized service-layer wrappers for all guarded entities.
+- **Phase 16 completed:** All enforcement triggers now use unified RETURN NULL + `log_illegal_attempt` pattern. All service methods use `handleGuardedUpdate()`.
+
+## Phase 16 — RETURN NULL Pattern Unification + UX Exception Handling (CLOSED)
+
+### Enforcement Standard
+
+All governance enforcement triggers use the **RETURN NULL** pattern:
+1. Validate the mutation against business rules
+2. If blocked: call `log_illegal_attempt()` with rule code, reason, and full payload
+3. Return NULL (silently reject — mutation produces 0 rows affected)
+4. If allowed: return NEW (mutation proceeds normally)
+
+### Unified Enforcement Vectors
+
+| Trigger | Entity | Rule Code | Logging |
+|---------|--------|-----------|---------|
+| `enforce_decision_status_transition` | rvm_decision | DECISION_FINAL_LOCK, DECISION_INVALID_TRANSITION | ✅ |
+| `enforce_chair_only_decision_status` | rvm_decision | CHAIR_ONLY_STATUS | ✅ |
+| `enforce_chair_approval_gate` | rvm_decision | CHAIR_GATE_MISSING | ✅ |
+| `enforce_document_lock_on_decision` | rvm_document_version | DOCUMENT_FINAL_LOCK | ✅ |
+| `enforce_dossier_status_transition` | rvm_dossier | DOSSIER_INVALID_TRANSITION | ✅ |
+| `enforce_meeting_status_transition` | rvm_meeting | MEETING_INVALID_TRANSITION | ✅ |
+| `enforce_task_status_transition` | rvm_task | TASK_INVALID_TRANSITION, TASK_NO_ASSIGNEE | ✅ |
+| `enforce_agenda_item_status_transition` | rvm_agenda_item | AGENDA_CLOSED_MEETING, AGENDA_INVALID_TRANSITION | ✅ |
+| `enforce_dossier_immutability` | rvm_task/agenda_item | DOSSIER_IMMUTABILITY | ✅ |
+
+### Service Layer Standard
+
+All mutation service methods use `handleGuardedUpdate()`:
+- Detects 0-row result (silent rejection)
+- Queries `get_latest_violation()` RPC for the reason
+- Throws error with violation reason for UI toast display
+
+| Service Method | Pattern |
+|----------------|---------|
+| `dossierService.updateDossierStatus` | `handleGuardedUpdate` |
+| `decisionService.updateDecision` | `handleGuardedUpdate` |
+| `decisionService.updateDecisionStatus` | `handleGuardedUpdate` |
+| `decisionService.recordChairApproval` | `handleGuardedUpdate` |
+| `meetingService.updateMeeting` | `handleGuardedUpdate` |
+| `meetingService.updateMeetingStatus` | `handleGuardedUpdate` |
+| `taskService.updateTask` | `handleGuardedUpdate` |
+| `taskService.updateTaskStatus` | `handleGuardedUpdate` |
+| `agendaItemService.updateAgendaItem` | `handleGuardedUpdate` |
+| `agendaItemService.withdrawAgendaItem` | `handleGuardedUpdate` |
+
+### UX Message Mapping
+
+All blocked mutations surface user-friendly messages via `getErrorMessage()` in `rls-error.ts`:
+
+| Violation Pattern | User Message |
+|-------------------|-------------|
+| Invalid meeting transition | "Invalid status transition for this meeting." |
+| Invalid task transition | "Invalid status transition for this task." |
+| Invalid dossier transition | "Invalid status transition for this dossier." |
+| Invalid agenda item transition | "Invalid agenda item transition: X -> Y" |
+| Cannot modify agenda item in closed meeting | "Cannot modify agenda items in a closed meeting." |
+| Cannot modify entities in locked dossier | "This dossier is locked and cannot be modified." |
+| Task cannot be in_progress without assigned_user_id | "A user must be assigned before setting task to In Progress." |
+| Cannot modify finalized decision | "This decision is finalized and cannot be modified." |
+| Only chair_rvm may change | "Only the Chair may change decision status." |
+| Update blocked by governance | "Update blocked by governance enforcement." |
 
 ## Phase 12 — DMS-Light UI (CLOSED)
 
