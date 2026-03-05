@@ -111,15 +111,13 @@ export const meetingService = {
    * Valid transitions: draft → published → closed
    */
   async updateMeetingStatus(id: string, status: MeetingStatus) {
-    const { data: updated, error } = await supabase
+    const result = await supabase
       .from('rvm_meeting')
       .update({ status })
       .eq('id', id)
       .select()
-      .single()
 
-    if (error) throw error
-    return updated
+    return handleGuardedUpdate(result, 'rvm_meeting', id)
   },
 
   /**

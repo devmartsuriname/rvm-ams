@@ -108,15 +108,13 @@ export const agendaItemService = {
    * Items are not deleted, only marked as withdrawn
    */
   async withdrawAgendaItem(id: string) {
-    const { data, error } = await supabase
+    const result = await supabase
       .from('rvm_agenda_item')
       .update({ status: 'withdrawn' })
       .eq('id', id)
       .select()
-      .single()
 
-    if (error) throw error
-    return data
+    return handleGuardedUpdate(result, 'rvm_agenda_item', id)
   },
 
   /**

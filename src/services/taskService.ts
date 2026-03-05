@@ -122,15 +122,13 @@ export const taskService = {
       statusData.completed_at = new Date().toISOString()
     }
 
-    const { data, error } = await supabase
+    const result = await supabase
       .from('rvm_task')
       .update(statusData)
       .eq('id', id)
       .select()
-      .single()
 
-    if (error) throw error
-    return data
+    return handleGuardedUpdate(result, 'rvm_task', id)
   },
 
   /**
