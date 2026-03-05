@@ -47,7 +47,7 @@ Database:
 
 ## Phase Completion Status
 
-All 9 phases + Phase 9B + Phase 9C CLOSED as of 2026-02-26. Phase 10A–10D CLOSED. Phase 11 (Illegal Attempt Logging Hardening) CLOSED. Phase 12 (DMS-Light UI) CLOSED — document upload, versioning, download, confidentiality badges, role-gated upload controls. **Accepted limitation:** silent rejection semantics (RETURN NULL, not RAISE EXCEPTION) — intentional trade-off for persistent logging on managed Supabase.
+All 9 phases + Phase 9B + Phase 9C CLOSED as of 2026-02-26. Phase 10A–10D CLOSED. Phase 11 (Illegal Attempt Logging Hardening) CLOSED. Phase 12 (DMS-Light UI) CLOSED. Phase 13 (Agenda Item Management UI) CLOSED — meeting detail tabs, agenda CRUD, decision linking, role-gated editing. **Accepted limitation:** silent rejection semantics (RETURN NULL, not RAISE EXCEPTION) — intentional trade-off for persistent logging on managed Supabase.
 
 ## Implemented Modules
 
