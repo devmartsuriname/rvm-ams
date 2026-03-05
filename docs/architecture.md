@@ -7,6 +7,7 @@
 ## Technology Stack
 
 - **Frontend:** React 18 + TypeScript + Vite
+- **Phase 15:** Role-specific dashboards (Chair/Secretary/Analyst) with role-based rendering via `useUserRoles()` hook. No new routes — existing `/dashboards` conditionally renders the appropriate dashboard variant.
 - **UI Framework:** Bootstrap 5 + React-Bootstrap (DarkOne Admin theme)
 - **State:** TanStack React Query (server state) + React Context (auth/layout)
 - **Backend:** Supabase (Lovable Cloud) — PostgreSQL + RLS + Edge Functions
