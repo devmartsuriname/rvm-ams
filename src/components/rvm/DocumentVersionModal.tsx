@@ -7,6 +7,8 @@ import { documentService } from '@/services/documentService'
 import { toast } from 'react-toastify'
 import { getErrorMessage } from '@/utils/rls-error'
 import { LoadingState } from '@/components/rvm/StateComponents'
+import { ConfidentialityBadge } from '@/components/rvm/StatusBadges'
+import type { Enums } from '@/integrations/supabase/types'
 
 type Props = {
   show: boolean
