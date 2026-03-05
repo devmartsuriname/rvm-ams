@@ -1,6 +1,6 @@
 # AMS-RVM Backend Status
 
-**Last Updated:** 2026-03-05 (Phase 20 Complete — Test Data Seeder)
+**Last Updated:** 2026-03-05 (Phase 21 Complete — Test Accounts & Role Verification)
 
 ---
 
@@ -39,6 +39,7 @@
 | 19A | Orphan File Cleanup — 18 unused files deleted (VectorMap/, httpClient, useEmailContext, promise, useFileUploader, useModal, useToggle, ComponentContainerCard, Preloader, TextAreaFormInput, ChoicesFormInput, _dropzone) | CLOSED |
 | 19B | Dead Export Cleanup — removed unused exports from date.ts, change-casing.ts, data.ts, context.ts, externals.d.ts | CLOSED |
 | 20 | Test Data Seeder — Edge Function `seed-rvm-workflow-data` creates 5 users, 6 dossiers, 5 meetings, 23 agenda items, 12 decisions, 10 tasks. See [Seeder Guide](Phase-20-Seeder-Guide.md) and [Data Report](Phase-20-Seed-Data-Report.md) | CLOSED |
+| 21 | Test Accounts & Role Verification — All 5 seed accounts verified (login, dashboard, RLS enforcement). See [Role Verification Report](Phase-21-Role-Verification-Report.md) | CLOSED |
 
 ## Database Architecture
 
