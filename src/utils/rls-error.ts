@@ -69,7 +69,7 @@ export function getErrorMessage(error: unknown): string {
     const err = error as Record<string, unknown>
     const msg = String(err.message ?? '')
 
-    // DB trigger validation errors (legacy RAISE EXCEPTION patterns still used by non-Phase-11 triggers)
+    // DB trigger violation messages (unified RETURN NULL pattern — Phase 16)
     if (msg.includes('Invalid dossier transition'))
       return 'Invalid status transition for this dossier.'
     if (msg.includes('Invalid meeting transition'))
