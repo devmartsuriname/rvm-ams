@@ -92,7 +92,7 @@ const UploadDocumentModal = ({ show, onHide, dossierId, decisions = [], agendaIt
   }
 
   return (
-    <Modal show={show} onHide={onHide} size="lg" centered>
+    <Modal show={show} onHide={onHide} size="xl" centered>
       <Modal.Header closeButton>
         <Modal.Title>Upload Document</Modal.Title>
       </Modal.Header>
