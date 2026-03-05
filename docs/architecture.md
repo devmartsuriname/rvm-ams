@@ -1,6 +1,6 @@
 # AMS-RVM System Architecture
 
-**Last Updated:** 2026-03-05 (Phase 19C — Auth Logout UX Fix + Micro Cleanup)
+**Last Updated:** 2026-03-05 (Phase 19A/19B — Orphan + Dead Export Cleanup)
 
 ---
 

@@ -36,6 +36,8 @@
 | 18E | SCSS & Demo Asset Cleanup (33 files deleted, 3 edited across 2 batches) | CLOSED |
 | 19 | Code Health Audit — report-only, no code modifications | CLOSED |
 | 19C | Auth Logout UX Fix + Duplicate Loading Component Cleanup | CLOSED |
+| 19A | Orphan File Cleanup — 18 unused files deleted (VectorMap/, httpClient, useEmailContext, promise, useFileUploader, useModal, useToggle, ComponentContainerCard, Preloader, TextAreaFormInput, ChoicesFormInput, _dropzone) | CLOSED |
+| 19B | Dead Export Cleanup — removed unused exports from date.ts, change-casing.ts, data.ts, context.ts, externals.d.ts | CLOSED |
 
 ## Database Architecture
 
