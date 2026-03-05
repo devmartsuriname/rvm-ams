@@ -31,6 +31,7 @@
 | 15 | Role-Specific Dashboards | CLOSED |
 | 17 | Advanced Search & Filtering | CLOSED |
 | 17R | Remediation: Decision date range filter (created_at) + Agenda meeting reference filter (meeting_id) | CLOSED |
+| 18 | Final System Completion QA — full system validation, no code changes | CLOSED |
 
 ## Database Architecture
 

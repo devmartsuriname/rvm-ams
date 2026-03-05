@@ -49,7 +49,7 @@ Database:
 
 ## Phase Completion Status
 
-All 9 phases + Phase 9B + Phase 9C CLOSED as of 2026-02-26. Phase 10A–10D CLOSED. Phase 11 (Illegal Attempt Logging Hardening) CLOSED. Phase 12 (DMS-Light UI) CLOSED. Phase 13 (Agenda Item Management UI) CLOSED. Phase 16 (RETURN NULL Pattern Unification + UX Exception Handling) CLOSED. Phase 14 (Decision List & Report Generation) CLOSED — enhanced global decision register with sorting, meeting filter, responsible unit column; printable decision reports with signature placeholders for both meeting-scoped and global register views.
+All 9 phases + Phase 9B + Phase 9C CLOSED as of 2026-02-26. Phase 10A–10D CLOSED. Phase 11 (Illegal Attempt Logging Hardening) CLOSED. Phase 12 (DMS-Light UI) CLOSED. Phase 13 (Agenda Item Management UI) CLOSED. Phase 16 (RETURN NULL Pattern Unification + UX Exception Handling) CLOSED. Phase 14 (Decision List & Report Generation) CLOSED. Phase 15 (Role-Specific Dashboards) CLOSED. Phase 17 (Advanced Search & Filtering) CLOSED including 17R remediation. Phase 18 (Final System Completion QA) CLOSED — validation-only phase, no functional code changes.
 
 ## Implemented Modules
 
