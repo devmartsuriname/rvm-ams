@@ -1,6 +1,6 @@
 # AMS-RVM System Architecture
 
-**Last Updated:** 2026-03-05 (Phase 17)
+**Last Updated:** 2026-03-05 (Phase 19 — Code Health Audit, report-only)
 
 ---
 
