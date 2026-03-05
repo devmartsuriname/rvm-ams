@@ -62,6 +62,34 @@ All 9 phases + Phase 9B + Phase 9C CLOSED as of 2026-02-26. Phase 10A–10D CLOS
 | Agenda Items | ✅ | ✅ | N/A | ✅ |
 | Documents | ✅ | ✅ | N/A | ✅ |
 
+## Agenda Item Management UI (Phase 13)
+
+### Entity Relationships
+
+- **Meeting → Agenda Items:** one-to-many — each agenda item belongs to exactly one meeting (`meeting_id` NOT NULL)
+- **Agenda Item → Dossier:** mandatory (`dossier_id` NOT NULL) — each agenda item references a dossier
+- **Agenda Item → Decision:** one-to-one optional — a decision may be linked via `agenda_item_id`
+
+### Status Lifecycle
+
+- Four states: `scheduled`, `presented`, `withdrawn`, `moved`
+- Status transitions governed by backend triggers (not editable via UI form)
+
+### Role-Based Editing Permissions
+
+- **Edit roles:** `secretary_rvm`, `admin_agenda`
+- **Read-only roles:** `chair_rvm`, `audit_readonly`, `admin_reporting`
+- Controls hidden when meeting status is `closed`
+
+### UI Integration
+
+- Meeting detail page uses tab navigation: Overview | Agenda Items | Decisions
+- Agenda items tab is the operational workspace for meeting preparation
+- Agenda items sorted by `agenda_number` ascending
+- All queries scoped by `meeting_id` — no broad fetches
+
+---
+
 ## DMS-Light Document Management (Phase 12)
 
 ### Entity Relationships

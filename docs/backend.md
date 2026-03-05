@@ -24,6 +24,8 @@
 | 10C | Decision Finalization Hard Lock Verification | CLOSED |
 | 10D | Chair Gate Formalization Layer (UI Visibility) | CLOSED |
 | 11 | Illegal Attempt Logging Hardening | CLOSED |
+| 12 | DMS-Light UI — Document storage + versioning + confidentiality UI | CLOSED |
+| 13 | Agenda Item Management UI — Meeting tabs, agenda CRUD, decision linking | CLOSED |
 
 ## Database Architecture
 
