@@ -59,7 +59,7 @@ All 9 phases + Phase 9B + Phase 9C CLOSED as of 2026-02-26. Phase 10A–10D CLOS
 | Audit Log | N/A | N/A | N/A | ✅ (read-only) |
 | Dashboard | N/A | N/A | N/A | ✅ |
 | Decisions | ✅ | ✅ | ✅ | ✅ |
-| Agenda Items | — | — | — | Deferred |
+| Agenda Items | ✅ | ✅ | N/A | ✅ |
 | Documents | ✅ | ✅ | N/A | ✅ |
 
 ## DMS-Light Document Management (Phase 12)
