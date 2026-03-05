@@ -38,6 +38,7 @@
 | 19C | Auth Logout UX Fix + Duplicate Loading Component Cleanup | CLOSED |
 | 19A | Orphan File Cleanup — 18 unused files deleted (VectorMap/, httpClient, useEmailContext, promise, useFileUploader, useModal, useToggle, ComponentContainerCard, Preloader, TextAreaFormInput, ChoicesFormInput, _dropzone) | CLOSED |
 | 19B | Dead Export Cleanup — removed unused exports from date.ts, change-casing.ts, data.ts, context.ts, externals.d.ts | CLOSED |
+| 20 | Test Data Seeder — Edge Function `seed-rvm-workflow-data` creates 5 users, 6 dossiers, 5 meetings, 24 agenda items, 12 decisions, 10 tasks | CLOSED |
 
 ## Database Architecture
 
