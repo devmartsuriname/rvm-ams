@@ -1,1 +1,4 @@
 project_id = "smjjpxhgnomucvmmllaj"
+
+[functions.seed-rvm-workflow-data]
+verify_jwt = false
