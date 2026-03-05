@@ -139,15 +139,13 @@ export const dossierService = {
    * RLS prevents update if status is decided/archived/cancelled
    */
   async updateDossier(id: string, data: DossierUpdate) {
-    const { data: updated, error } = await supabase
+    const result = await supabase
       .from('rvm_dossier')
       .update(data)
       .eq('id', id)
       .select()
-      .single()
 
-    if (error) throw error
-    return updated
+    return handleGuardedUpdate(result, 'rvm_dossier', id)
   },
 
   /**
