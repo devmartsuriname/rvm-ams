@@ -1,118 +1,75 @@
-# Phase 23 — Final QA, Performance & Production Readiness Audit
+# Phase 23B — Critical Remediation Plan
 
-## Pre-Execution Analysis
+## BLOCKER 1 — Search Runtime Error
 
-### Current Data State
+**File:** `src/services/searchService.ts`, line 72
 
-- 7 dossiers, 6 meetings, 24 agenda items, 13 decisions, 10 tasks
-- **0 documents, 0 document versions** — confirms document storage is untested
-- 133 audit events, 4 illegal attempt log entries
-- Storage bucket `rvm-documents` exists (private), with correct RLS on `storage.objects` (INSERT for secretary/admin_dossier/admin_reporting, SELECT for all RVM roles)
+**Current:** `.or(`location.ilike.${pattern},meeting_type.ilike.${pattern}`)`
 
-### Storage Policy Gap
+**Fix:** `.or(`location.ilike.${pattern}`)`
 
-No UPDATE or DELETE policy on `storage.objects` — this is correct by design (immutable documents), but means versioning creates new files rather than overwriting.
+The `meeting_type` column is a PostgreSQL enum and cannot use `ilike`. The existing `.eq()` filter on line 77 already handles meeting type filtering correctly.
 
----
+**1 file edit.**
 
-## Execution Plan
+## BLOCKER 2 — Document Upload Validation
 
-### Step 1 — Runtime QA (All 7 Routes)
+This requires real browser interaction. The plan:
 
-Log in as `info@devmart.sr` (super admin) and navigate each route. Check for:
+1. Log in as `secretary@rvm.local` in the preview
+2. Navigate to a seed dossier's Documents tab
+3. Attempt file upload via the UI modal
+4. Verify DB records created (`rvm_document`, `rvm_document_version`)
+5. Verify storage bucket file exists
+6. Test download via signed URL
+7. Log in as `observer@rvm.local` and verify no Upload button renders
 
-- Console errors
-- Data loading
-- Empty states where expected
-- No broken UI
+**Note:** Browser automation cannot interact with native file dialogs. The user will need to perform the actual file selection manually. I can verify the surrounding UI (upload button visibility, modal rendering, observer restrictions) and confirm DB/storage state after upload.  
+  
+**Governance Note (Required Before Approval)**
 
-### Step 2 — Document Storage Validation (CRITICAL)
+This Phase 23B remediation includes a code change and therefore must follow full Devmart phase governance.
 
-This is the highest-priority test since documents have never been tested with real files.
+Add the following before execution:
 
-1. Log in as **[secretary@rvm.local](mailto:secretary@rvm.local)** (has `secretary_rvm` role — permitted to upload)
-2. Navigate to `/rvm/dossiers` → open a seed dossier → Documents tab
-3. Upload a test document (small text/PDF file)
-4. Verify: document record created, version record created, file in storage
-5. Upload a new version via DocumentVersionModal
-6. Download both versions via signed URL
-7. Log in as **[observer@rvm.local](mailto:observer@rvm.local)** → verify can VIEW documents but NOT upload (no upload button rendered)
+1. Create pre-restore point:
 
-### Step 3 — Performance Check
+   Project Restore Points/[RP-P23B-remediation-pre.md](http://RP-P23B-remediation-pre.md)
 
-Use browser performance profiling on dashboard and search pages. Measure:
+2. Create post-restore point:
 
-- Initial page load
-- Search response time
-- Any long tasks or blocking renders
+   Project Restore Points/[RP-P23B-remediation-post.md](http://RP-P23B-remediation-post.md)
 
-### Step 4 — Lighthouse Audit
+3. Update the remediation completion rule:
 
-Run Lighthouse via browser tools on the dashboard page for Performance, Accessibility, Best Practices scores.
+   - Search fix is only COMPLETE after /search runs without runtime error
 
-### Step 5 — UX Stability
+   - Document validation is only COMPLETE after a real file upload is manually performed and verified through:
 
-Verify across modules:
+     a) UI upload success
 
-- Buttons responsive on first click
-- No double-submit issues (isPending guards)
-- Loading states render correctly
-- Navigation consistent
+     b) rvm_document record created
 
-### Step 6 — Data Integrity Check
+     c) rvm_document_version record created
 
-Query database for:
+     d) storage object exists
 
-- Duplicate records
-- Orphaned relations (agenda items without meetings, decisions without agenda items)
-- Status consistency
+     e) signed URL download works
 
-### Step 7 — Security Sanity Check
+     f) observer cannot upload
 
-- Unauthenticated access redirects to login
-- RLS enforced (verify via role-restricted queries)
-- No data leakage in UI components
+4. If the real upload is not manually completed, Phase 23B must be marked PARTIAL, not COMPLETE.
 
----
+This remediation may not proceed without restore points.
 
 ## Deliverable
 
-Create `docs/Phase-23-Final-QA-Report.md` with:
+Update `docs/Phase-23-Final-QA-Report.md` with search fix confirmation and document test results.
 
-- PASS/FAIL per module and step
-- Performance metrics
-- Lighthouse scores (if obtainable)
-- Document storage test results (upload, version, download, access control)
-- Security observations
-- Production readiness status
-
-## Operations
+## Operations (2 total, within 5-op limit)
 
 
-| #   | Op     | File                               |
-| --- | ------ | ---------------------------------- |
-| 1   | Create | `docs/Phase-23-Final-QA-Report.md` |
-
-
-**Total: 1 op** (documentation only)  
-  
-**NOTE — Documents Module Navigation Clarification**
-
-The Documents module is still not visible in the sidebar navigation.
-
-Before production readiness is declared, clarify and document one of the following:
-
-1. Documents is intentionally dossier-scoped only
-
-   - Access path: Dossiers → Dossier Detail → Documents tab
-
-   - In this case, document this explicitly in the Phase 23 report and architecture docs.
-
-OR
-
-2. A standalone Documents navigation entry is intended
-
-   - In that case, this remains a UI navigation gap and must be scheduled as a follow-up item before production readiness.
-
-This is not a blocker for Phase 23 execution, but it must be explicitly resolved before Phase 25.  
-  
+| #   | Op     | File                                                          |
+| --- | ------ | ------------------------------------------------------------- |
+| 1   | Edit   | `src/services/searchService.ts` — remove enum ilike (line 72) |
+| 2   | Update | `docs/Phase-23-Final-QA-Report.md` — add remediation results  |
