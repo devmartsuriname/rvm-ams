@@ -219,23 +219,31 @@ This is **NOT** a gap — it is the designed architecture.
 
 **File Changed:** `src/services/searchService.ts` (1 line edit)
 
-### BLOCKER 2 — Document Upload: ⏳ AWAITING MANUAL TEST (RLS FIX APPLIED)
+### BLOCKER 2 — Document Upload: ⏳ AWAITING MANUAL TEST (RLS + UX FIX APPLIED)
 
 **Critical RLS Defect Found:** All 17 INSERT/UPDATE policies across 9 domain tables were defined as `RESTRICTIVE` with no `PERMISSIVE` counterpart. PostgreSQL requires at least one PERMISSIVE policy to grant access; RESTRICTIVE policies can only narrow existing permissions. This caused all authenticated writes to be silently blocked system-wide (HTTP 406 errors on every write operation).
 
 **Root Cause:** Policies were originally created with `AS RESTRICTIVE`. The seeder bypassed this via `SERVICE_ROLE_KEY`, masking the issue until real browser interactions were attempted.
 
-**Fix Applied:** Migration `convert_restrictive_policies_to_permissive` — dropped and recreated all 17 INSERT/UPDATE policies as PERMISSIVE (default) with identical conditions. No logic changes.
+**Fix Applied (Migration):** Migration `convert_restrictive_policies_to_permissive` — dropped and recreated all 17 INSERT/UPDATE policies as PERMISSIVE (default) with identical conditions. No logic changes.
 
 **Affected Tables:** `missive_keyword`, `rvm_agenda_item`, `rvm_decision`, `rvm_document`, `rvm_document_version`, `rvm_dossier`, `rvm_item`, `rvm_meeting`, `rvm_task`
 
+**Second Root Cause — Governance Trigger UX:** After the RLS fix, uploads on locked dossiers (status `decided`) still failed with cryptic PGRST116 error. The `enforce_dossier_immutability` trigger correctly returns `NULL` to block the INSERT, but `documentService.ts` used `.select().single()` which throws a generic PostgREST error on 0 rows instead of fetching the governance violation reason.
+
+**Fix Applied (Client-side):** Replaced `.select().single()` with `.select()` + empty-array check on all INSERT paths in `documentService.ts`. When 0 rows returned, the service now fetches the specific violation reason from `rvm_illegal_attempt_log` via `fetchViolationReason()` and throws a descriptive error.
+
+**Files Changed:**
+- `src/services/documentService.ts` — 3 INSERT paths updated (createDocument rvm_document, createDocument rvm_document_version, uploadNewVersion rvm_document_version)
+
 **Manual Upload Test Required:**
-1. Login as `secretary@rvm.local` → Dossiers → any seed dossier → Documents tab
+1. Login as `secretary@rvm.local` → Dossiers → **RVM-SEED-001 (draft)** → Documents tab
 2. Click "Upload Document" → select a small PDF/TXT file
 3. Verify document appears in the Documents tab
 4. Upload a second version via the version modal
 5. Download via signed URL
 6. Login as `observer@rvm.local` → verify no Upload button renders
+7. Attempt upload on **RVM-SEED-005 (decided)** → verify governance rejection toast
 
 **Until manual test is completed, Phase 23B status: PARTIAL**
 
@@ -245,10 +253,11 @@ This is **NOT** a gap — it is the designed architecture.
 |---------|--------|
 | Search enum ilike fix | ✅ COMPLETE |
 | RLS RESTRICTIVE→PERMISSIVE migration | ✅ COMPLETE |
+| Document INSERT UX (RETURN NULL handling) | ✅ COMPLETE |
 | Document upload validation | ⏳ PARTIAL (manual test required) |
 
-**Phase 23B: PARTIAL — search fix complete; RLS write-blocking defect fixed; document upload awaiting manual validation.**
+**Phase 23B: PARTIAL — all code/migration fixes complete; document upload awaiting manual validation.**
 
 ### Overall Verdict
 
-**READY FOR MANUAL VALIDATION** — The critical RLS defect that blocked all write operations has been corrected. All governance workflows, RBAC, audit trails, and status machines are fully operational. Document upload must be manually tested to confirm end-to-end functionality.
+**READY FOR MANUAL VALIDATION** — The critical RLS defect and governance trigger UX issue have both been corrected. All governance workflows, RBAC, audit trails, and status machines are fully operational. Document upload must be manually tested to confirm end-to-end functionality.

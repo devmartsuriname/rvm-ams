@@ -33,13 +33,25 @@ All conditions preserved identically. Only policy type changed from RESTRICTIVE 
 
 - Search fix: ✅ COMPLETE
 - RLS migration: ✅ COMPLETE
+- Document INSERT UX fix: ✅ COMPLETE
 - Document upload validation: ⏳ PARTIAL (manual test required)
 - Overall: **PARTIAL** — awaiting manual document upload test
+
+## Additional Changes (Post-RLS Fix)
+
+### Client-side INSERT Guard — `src/services/documentService.ts`
+
+Replaced `.select().single()` with `.select()` + empty-array check on 3 INSERT paths:
+- `createDocument` → `rvm_document` INSERT
+- `createDocument` → `rvm_document_version` INSERT
+- `uploadNewVersion` → `rvm_document_version` INSERT
+
+When governance trigger returns NULL (0 rows), the service fetches the violation reason from `rvm_illegal_attempt_log` and throws a descriptive error instead of a cryptic PGRST116.
 
 ## Governance Compliance
 
 - ✅ Pre-restore point created
 - ✅ No schema changes (policies only)
 - ✅ No trigger changes
-- ✅ No code changes
+- ✅ Client-side error handling fix only
 - ✅ All conditions preserved exactly
