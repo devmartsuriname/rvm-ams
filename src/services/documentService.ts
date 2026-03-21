@@ -56,7 +56,7 @@ export const documentService = {
     const { dossierId, title, docType, confidentialityLevel, file, decisionId, agendaItemId, createdBy } = params
 
     // 1. Insert document record
-    const { data: doc, error: docError } = await supabase
+    const { data: docs, error: docError } = await supabase
       .from('rvm_document')
       .insert({
         dossier_id: dossierId,
@@ -68,9 +68,13 @@ export const documentService = {
         created_by: createdBy ?? null,
       })
       .select()
-      .single()
 
     if (docError) throw docError
+    if (!docs || docs.length === 0) {
+      const reason = await fetchViolationReason('rvm_document', dossierId)
+      throw new Error(reason ?? 'Document creation blocked by governance enforcement. The dossier may be locked.')
+    }
+    const doc = docs[0]
 
     // 2. Upload file to storage
     const storagePath = `${dossierId}/${doc.id}/v1/${file.name}`
