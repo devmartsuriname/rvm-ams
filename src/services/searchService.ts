@@ -69,7 +69,7 @@ async function searchMeetings(pattern: string, filters?: SearchFilters) {
   let q = supabase
     .from('rvm_meeting')
     .select('id, meeting_date, meeting_type, status, location')
-    .or(`location.ilike.${pattern},meeting_type.ilike.${pattern}`)
+    .or(`location.ilike.${pattern}`)
     .order('meeting_date', { ascending: false })
     .limit(10)
 
