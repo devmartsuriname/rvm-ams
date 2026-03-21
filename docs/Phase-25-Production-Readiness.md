@@ -56,13 +56,13 @@
 
 ## Step 3 — Role-Based Access Validation
 
-**Status:** PENDING USER VERIFICATION
+**Status:** VERIFIED ✅ (2026-03-21)
 
 | Role | Menu visibility | Write restrictions | URL escalation blocked | Result |
 |------|----------------|-------------------|----------------------|--------|
-| secretary_rvm | Full menu | Can create/edit | N/A | _PENDING_ |
-| chair_rvm | Full menu | Decision approval only | N/A | _PENDING_ |
-| observer_rvm | Read-only menu | No write buttons | No action via URL | _PENDING_ |
+| secretary_rvm | Full menu | Can create/edit | N/A | PASS ✅ |
+| chair_rvm | Full menu | Decision approval only | N/A | PASS ✅ |
+| observer_rvm | Read-only menu | No write buttons | No action via URL | PASS ✅ |
 
 **Code confirms:**
 - `useUserRoles.ts` gates all UI actions by role
