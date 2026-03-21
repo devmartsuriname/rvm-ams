@@ -39,18 +39,18 @@
 
 ## Step 2 — Domain & Routing Validation
 
-**Status:** PENDING USER VERIFICATION
+**Status:** VERIFIED ✅ (2026-03-21)
 
 | Test | Expected | Result |
 |------|----------|--------|
-| rvmflow.com resolves | App loads | _PENDING_ |
-| HTTPS enforced | No HTTP fallback | _PENDING_ |
-| `/auth/sign-in` direct URL | Sign-in page | _PENDING_ |
-| `/dashboards` direct URL | Dashboard loads | _PENDING_ |
-| `/rvm/dossiers` direct URL | Dossier list loads | _PENDING_ |
-| `/rvm/meetings` direct URL | Meeting list loads | _PENDING_ |
-| `/search` direct URL | Search page loads | _PENDING_ |
-| SPA refresh on deep route | No 404 | _PENDING_ |
+| rvmflow.com resolves | App loads | PASS ✅ |
+| HTTPS enforced | No HTTP fallback | PASS ✅ |
+| `/auth/sign-in` direct URL | Sign-in page | PASS ✅ |
+| `/dashboards` direct URL | Dashboard loads | PASS ✅ |
+| `/rvm/dossiers` direct URL | Dossier list loads | PASS ✅ |
+| `/rvm/meetings` direct URL | Meeting list loads | PASS ✅ |
+| `/search` direct URL | Search page loads | PASS ✅ |
+| SPA refresh on deep route | No 404 | PASS ✅ |
 
 ---
 
