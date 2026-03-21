@@ -151,7 +151,7 @@ export const documentService = {
     if (uploadError) throw uploadError
 
     // Create version record
-    const { data: version, error: versionError } = await supabase
+    const { data: versionRows, error: versionError } = await supabase
       .from('rvm_document_version')
       .insert({
         document_id: documentId,
@@ -163,9 +163,13 @@ export const documentService = {
         uploaded_by: uploadedBy ?? null,
       })
       .select()
-      .single()
 
     if (versionError) throw versionError
+    if (!versionRows || versionRows.length === 0) {
+      const reason = await fetchViolationReason('rvm_document_version', documentId)
+      throw new Error(reason ?? 'Version creation blocked by governance enforcement.')
+    }
+    const version = versionRows[0]
 
     // Update current_version_id (guarded)
     const versionLinkResult = await supabase
