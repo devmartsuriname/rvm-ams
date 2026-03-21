@@ -125,9 +125,15 @@ export const dossierService = {
       })
 
     if (itemError) {
-      // Rollback dossier if item creation fails
-      console.error('[DossierService] Failed to create item, dossier orphaned:', itemError)
-      throw itemError
+      // rvm_item creation failed. The rvm_dossier record was already committed and cannot be
+      // rolled back from the client (no DELETE RLS policy). Surface the orphaned dossier ID
+      // so an administrator can identify and clean up the incomplete record.
+      console.error('[DossierService] rvm_item creation failed. Orphaned dossier ID:', dossier.id, itemError)
+      throw new Error(
+        `Dossier was created but the supplementary record failed to save. ` +
+        `Orphaned dossier ID: ${dossier.id}. ` +
+        `Please contact your administrator to resolve this incomplete record.`
+      )
     }
 
     return dossier
