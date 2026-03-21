@@ -1,96 +1,118 @@
-# Phase 22 — Full Workflow Simulation Plan
+# Phase 23 — Final QA, Performance & Production Readiness Audit
 
-## Pre-Execution Findings
+## Pre-Execution Analysis
 
-**Meeting `in_session` state does not exist.** The `status_transitions` table only defines `draft → published → closed` for meetings. The UI (`MeetingStatusActions.tsx`) matches this. Scenario 1 step 6 ("Move to in_session") will be **skipped as N/A** — this is by design, not a defect.
+### Current Data State
 
-## Execution Approach
+- 7 dossiers, 6 meetings, 24 agenda items, 13 decisions, 10 tasks
+- **0 documents, 0 document versions** — confirms document storage is untested
+- 133 audit events, 4 illegal attempt log entries
+- Storage bucket `rvm-documents` exists (private), with correct RLS on `storage.objects` (INSERT for secretary/admin_dossier/admin_reporting, SELECT for all RVM roles)
 
-All 5 scenarios will be tested via browser automation using the seed accounts. Results will be documented in `docs/Phase-22-Workflow-Simulation-Report.md`.
+### Storage Policy Gap
+
+No UPDATE or DELETE policy on `storage.objects` — this is correct by design (immutable documents), but means versioning creates new files rather than overwriting.
 
 ---
 
-## Scenario 1 — Full Happy Path
+## Execution Plan
 
-1. Login as **[secretary@rvm.local](mailto:secretary@rvm.local)** → Create new meeting → Add agenda item (link to seed dossier) → Publish meeting → Close meeting
-2. Create decision on an agenda item
-3. Login as **[chair@rvm.local](mailto:chair@rvm.local)** → Navigate to meeting → Approve decision → Finalize decision
-4. Verify: decision locked (`is_final`), dossier cascaded to `decided`
+### Step 1 — Runtime QA (All 7 Routes)
 
-## Scenario 2 — Invalid Transition Blocking
+Log in as `info@devmart.sr` (super admin) and navigate each route. Check for:
 
-1. As chair: attempt to edit the finalized decision
-2. As secretary: attempt to re-open the closed meeting (no transition button should exist)
-3. As secretary: attempt to edit the now-decided dossier (RLS should block)
-4. Verify toast error messages and audit/illegal attempt logs
+- Console errors
+- Data loading
+- Empty states where expected
+- No broken UI
 
-## Scenario 3 — Role Violation
+### Step 2 — Document Storage Validation (CRITICAL)
 
-1. Login as **[observer@rvm.local](mailto:observer@rvm.local)** → verify no create/edit/approve buttons visible
-2. Login as **[member2@rvm.local](mailto:member2@rvm.local)** (admin_agenda) → attempt decision approval (button should not render)
-3. Login as **[member1@rvm.local](mailto:member1@rvm.local)** (admin_dossier) → attempt meeting creation (button should not render)
+This is the highest-priority test since documents have never been tested with real files.
 
-## Scenario 4 — Task Flow
+1. Log in as **[secretary@rvm.local](mailto:secretary@rvm.local)** (has `secretary_rvm` role — permitted to upload)
+2. Navigate to `/rvm/dossiers` → open a seed dossier → Documents tab
+3. Upload a test document (small text/PDF file)
+4. Verify: document record created, version record created, file in storage
+5. Upload a new version via DocumentVersionModal
+6. Download both versions via signed URL
+7. Log in as **[observer@rvm.local](mailto:observer@rvm.local)** → verify can VIEW documents but NOT upload (no upload button rendered)
 
-1. As secretary: create task linked to seed dossier → assign to member1
-2. Update task status: todo → in_progress → done
-3. Verify status transition enforcement
+### Step 3 — Performance Check
 
-## Scenario 5 — Document Flow
+Use browser performance profiling on dashboard and search pages. Measure:
 
-1. As secretary: upload a test document to a seed dossier
-2. Add a version
-3. Download via signed URL
-4. Verify access control (observer can view but not upload)
+- Initial page load
+- Search response time
+- Any long tasks or blocking renders
+
+### Step 4 — Lighthouse Audit
+
+Run Lighthouse via browser tools on the dashboard page for Performance, Accessibility, Best Practices scores.
+
+### Step 5 — UX Stability
+
+Verify across modules:
+
+- Buttons responsive on first click
+- No double-submit issues (isPending guards)
+- Loading states render correctly
+- Navigation consistent
+
+### Step 6 — Data Integrity Check
+
+Query database for:
+
+- Duplicate records
+- Orphaned relations (agenda items without meetings, decisions without agenda items)
+- Status consistency
+
+### Step 7 — Security Sanity Check
+
+- Unauthenticated access redirects to login
+- RLS enforced (verify via role-restricted queries)
+- No data leakage in UI components
 
 ---
 
 ## Deliverable
 
-Create `docs/Phase-22-Workflow-Simulation-Report.md` with:
+Create `docs/Phase-23-Final-QA-Report.md` with:
 
-- PASS/FAIL per scenario and sub-step
-- Error messages captured
-- Audit log evidence (query `rvm_illegal_attempt_log`)
-- Root causes for any failures
-- Recommended fixes (if any)
+- PASS/FAIL per module and step
+- Performance metrics
+- Lighthouse scores (if obtainable)
+- Document storage test results (upload, version, download, access control)
+- Security observations
+- Production readiness status
 
 ## Operations
 
 
-| #   | Op     | File                                          |
-| --- | ------ | --------------------------------------------- |
-| 1   | Create | `docs/Phase-22-Workflow-Simulation-Report.md` |
+| #   | Op     | File                               |
+| --- | ------ | ---------------------------------- |
+| 1   | Create | `docs/Phase-23-Final-QA-Report.md` |
 
 
 **Total: 1 op** (documentation only)  
   
-**NOTE — Workflow State Model Clarification**
+**NOTE — Documents Module Navigation Clarification**
 
-The meeting lifecycle currently supports:
+The Documents module is still not visible in the sidebar navigation.
 
-draft → published → closed
+Before production readiness is declared, clarify and document one of the following:
 
-The "in_session" state is NOT part of the current model.
+1. Documents is intentionally dossier-scoped only
 
-This must be explicitly documented in [architecture.md](http://architecture.md)
+   - Access path: Dossiers → Dossier Detail → Documents tab
 
-to avoid confusion with future workflow expectations.
+   - In this case, document this explicitly in the Phase 23 report and architecture docs.
 
-This is NOT a blocker for Phase 22, but a governance clarification.  
+OR
+
+2. A standalone Documents navigation entry is intended
+
+   - In that case, this remains a UI navigation gap and must be scheduled as a follow-up item before production readiness.
+
+This is not a blocker for Phase 23 execution, but it must be explicitly resolved before Phase 25.  
   
----  
-  
-**NOTE — Runtime Stability Requirement**
-
-During Phase 22 execution:
-
-If ANY runtime error, broken UI state, or missing data occurs:
-
-→ classify as CRITICAL
-
-→ stop scenario execution
-
-→ report immediately
-
-Phase 22 must validate real behavior, not assumptions.
