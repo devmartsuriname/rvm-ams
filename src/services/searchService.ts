@@ -99,7 +99,7 @@ async function searchAgendaItems(pattern: string, filters?: SearchFilters) {
     .limit(10)
 
   if (filters?.agendaStatus) {
-    q = q.eq('status', filters.agendaStatus)
+    q = q.eq('status', filters.agendaStatus as any)
   }
   if (filters?.agendaMeetingId) {
     q = q.eq('meeting_id', filters.agendaMeetingId)
