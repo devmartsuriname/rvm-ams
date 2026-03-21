@@ -1,120 +1,99 @@
-# Phase 23B — Document Upload Validation & Critical RLS Fix
+# Phase 23B — Document Upload Root Cause & Fix
 
-## Root Cause Identified
+## Root Cause (Confirmed)
 
-The error "Cannot coerce the result to a single JSON object" (HTTP 406) is caused by a **systemic RLS policy defect**: ALL INSERT and UPDATE policies across every domain table are `RESTRICTIVE` with no `PERMISSIVE` counterpart.
+The upload was attempted on dossier **RVM-SEED-005** which has status `decided`. The `enforce_dossier_immutability` BEFORE INSERT trigger on `rvm_document` checks the linked dossier's status and returns `NULL` (silently blocks) for dossiers in `decided`, `archived`, or `cancelled` states. This causes `.select().single()` to receive 0 rows → PostgREST error PGRST116 "Cannot coerce the result to a single JSON object".
 
-PostgreSQL RLS requires at least one PERMISSIVE policy to grant access. RESTRICTIVE policies can only narrow access granted by PERMISSIVE ones. With only RESTRICTIVE INSERT/UPDATE policies, **no authenticated user can write to any table** through the Supabase client.
+**The RLS PERMISSIVE fix was correct and necessary.** The current failure is NOT an RLS issue — it is a governance enforcement trigger working as designed, but the error is not surfaced correctly to the user.
 
-### Affected Tables (17 policies total)
+## Two Issues to Fix
 
-```text
-missive_keyword    — INSERT, UPDATE
-rvm_agenda_item    — INSERT, UPDATE
-rvm_decision       — INSERT, UPDATE
-rvm_document       — INSERT, UPDATE
-rvm_document_version — INSERT
-rvm_dossier        — INSERT, UPDATE
-rvm_item           — INSERT, UPDATE
-rvm_meeting        — INSERT, UPDATE
-rvm_task           — INSERT, UPDATE
+### Issue 1: UX — Silent governance rejection shows cryptic error
+
+The `documentService.createDocument()` uses `.select().single()` which throws a generic PostgREST error when `RETURN NULL` blocks the insert. The `handleGuardedUpdate` utility already handles this pattern, but it is not used for the initial INSERT — only for the step-4 `current_version_id` update.
+
+**Fix:** Replace `.select().single()` with `.select()` (no `.single()`) and check for empty result array. If empty, fetch the violation reason from `rvm_illegal_attempt_log` using the existing `fetchViolationReason()` utility.
+
+**File:** `src/services/documentService.ts` — lines 59-73
+
+```typescript
+// Current:
+const { data: doc, error: docError } = await supabase
+  .from('rvm_document')
+  .insert({...})
+  .select()
+  .single()
+if (docError) throw docError
+
+// Fixed:
+const { data: docs, error: docError } = await supabase
+  .from('rvm_document')
+  .insert({...})
+  .select()
+if (docError) throw docError
+if (!docs || docs.length === 0) {
+  const reason = await fetchViolationReason('rvm_document', dossierId)
+  throw new Error(reason ?? 'Document creation blocked by governance enforcement.')
+}
+const doc = docs[0]
 ```
 
-This explains why the document upload fails and why no real user has successfully created any entity through the UI (all seed data was created via SERVICE_ROLE_KEY which bypasses RLS).
+### Issue 2: Same pattern needed for version INSERT (line 87-101)
 
-### Why this was not caught earlier
+The `rvm_document_version` table also has a trigger. Same fix: replace `.select().single()` with `.select()` + empty-check.
 
-Phase 20 seeder uses `SERVICE_ROLE_KEY` (bypasses RLS). Phase 21-22 tests were code-level verifications, not real browser interactions. This is the first real user-initiated write operation.
+## Validation Plan
 
----
+After the fix, test with:
 
-## Fix
+1. **Blocked dossier** (RVM-SEED-005, status `decided`) → should show "Cannot modify entities in locked dossier" toast
+2. **Open dossier** (RVM-SEED-001, status `draft`) → should upload successfully
 
-**Single migration**: Drop all 17 RESTRICTIVE INSERT/UPDATE policies and recreate them as PERMISSIVE with identical conditions.
-
-The storage.objects policies are already PERMISSIVE (correct) — no changes needed there.
-
----
-
-## Execution Plan
+## Operations (3 total, within 5-op limit)
 
 
-| #   | Op        | Description                                                          |
-| --- | --------- | -------------------------------------------------------------------- |
-| 1   | Create    | `Project Restore Points/RP-P23B-doc-validation-pre.md`               |
-| 2   | Migration | Convert 17 RESTRICTIVE INSERT/UPDATE policies to PERMISSIVE          |
-| 3   | Update    | `docs/Phase-23-Final-QA-Report.md` — add document validation results |
-| 4   | Create    | `Project Restore Points/RP-P23B-doc-validation-post.md`              |
-| 5   | Update    | `docs/architecture.md` + `docs/backend.md` — note RLS fix            |
+| #   | Op     | File                                                                                             |
+| --- | ------ | ------------------------------------------------------------------------------------------------ |
+| 1   | Edit   | `src/services/documentService.ts` — replace `.single()` with guarded empty-check on INSERT paths |
+| 2   | Update | `docs/Phase-23-Final-QA-Report.md` — document root cause and fix                                 |
+| 3   | Update | `Project Restore Points/RP-P23B-doc-validation-post.md` — update with final status               |
 
 
-After the migration, the user will need to manually test the document upload flow to confirm PASS status. If upload succeeds, Phase 23B is marked COMPLETE. If not, remains PARTIAL.
-
----
-
-**Governance Note — CRITICAL RLS DEFECT (BLOCKING)**
-
-The current failure is not a UI or API issue but a SYSTEM-WIDE RLS MISCONFIGURATION.
-
-All INSERT/UPDATE policies are defined as RESTRICTIVE without any PERMISSIVE base policy.
-
-This results in:
-
-- ALL authenticated writes being blocked
-
-- System effectively read-only for all users
-
-- Seeder bypassed this via SERVICE_ROLE_KEY (not representative of real usage)
-
-This is a CRITICAL BLOCKER for production.
-
----
-
-Required correction:
-
-1. Convert all INSERT and UPDATE policies from RESTRICTIVE → PERMISSIVE
-
-2. Preserve ALL existing conditions (no logic change)
-
-3. Do NOT modify SELECT policies
-
-4. Do NOT modify storage policies (already correct)
-
----
-
-Execution classification:
-
-This is NOT a feature change.
-
-This is a SYSTEM CORRECTION to restore intended behavior.
-
----
-
-Completion rule:
-
-Phase 23B cannot be marked COMPLETE until:
-
-- RLS fix applied
-
-- Document upload succeeds via real user
-
-- At least one write operation succeeds (document OR dossier OR task)
-
-Until then:
-
-→ Status must remain BLOCKED / PARTIAL  
   
-  
-  
-**Technical Detail — Migration SQL**
+**Governance Note — Completion Evidence Required**
 
-```sql
--- For each of the 17 policies:
--- DROP POLICY "<name>" ON <table>;
--- CREATE POLICY "<name>" ON <table>
---   FOR <INSERT|UPDATE> TO authenticated
---   USING (<same condition>)        -- for UPDATE
---   WITH CHECK (<same condition>);  -- for INSERT
-```
+Phase 23B may only be marked COMPLETE after both validation cases pass with evidence:
 
-All conditions remain identical. Only the policy type changes from RESTRICTIVE to PERMISSIVE (which is the PostgreSQL default when no `AS RESTRICTIVE` clause is specified).
+1. Blocked dossier validation
+
+   - Upload attempt on a decided dossier must show the correct governance rejection message
+
+   - No cryptic PostgREST error may remain
+
+2. Open dossier validation
+
+   - Upload on an open dossier must complete successfully
+
+   - Verify:
+
+     a) rvm_document row created
+
+     b) rvm_document_version row created
+
+     c) current_version_id set correctly
+
+     d) storage object exists
+
+     e) signed URL download works
+
+If only the blocked-dossier UX is fixed but the open-dossier upload is not verified end-to-end,
+
+Phase 23B must remain PARTIAL.  
+  
+**Governance Note**
+
+- No schema changes
+- No RLS changes
+- No trigger changes
+- This is a client-side error handling fix only
+- The trigger is working correctly — the UX was not handling the `RETURN NULL` pattern for INSERT operations
