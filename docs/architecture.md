@@ -1,6 +1,6 @@
 # AMS-RVM System Architecture
 
-**Last Updated:** 2026-03-21 (Phase 25 Complete — Production Readiness & Go-Live)
+**Last Updated:** 2026-03-21 (Phase 27 Complete — VPS Migration Blueprint)
 
 ---
 
@@ -156,3 +156,37 @@ See [Phase 24 Security Review Report](Phase-24-Security-Review-Report.md) for fu
 Environment configuration audited, domain (rvmflow.com) validated with HTTPS, 5 routes verified via direct URL, role-based access tested for 3 roles, document upload/download confirmed on production domain, governance block validated, super admin deactivated, performance baseline documented. 7/7 manual validation tests PASS.
 
 See [Phase 25 Production Readiness](Phase-25-Production-Readiness.md) for full details.
+
+---
+
+## VPS Deployment Architecture (Phase 27)
+
+**Deployment model:** Option A — Static files served by nginx (no runtime Node.js process)
+
+```
+VPS (Hostinger KVM)
+├── nginx
+│   ├── Serves: /var/www/rvmflow/dist/  (Vite build output)
+│   ├── SPA routing: try_files $uri $uri/ /index.html
+│   ├── SSL: Let's Encrypt via certbot (auto-renewing)
+│   └── HTTP → HTTPS redirect: port 80 → port 443
+├── Node.js v20 LTS  (build tool only — not a runtime process)
+├── ufw firewall: ports 22, 80, 443 open only
+└── systemd: manages nginx (auto-restart on reboot)
+
+External (unchanged):
+└── Supabase (cloud) — PostgreSQL + RLS + Storage + Auth
+```
+
+**Key characteristics:**
+- PM2 is NOT required — no persistent Node.js process after build
+- Build command: `npm run build` → produces `dist/`
+- nginx is the only server process; managed by Ubuntu systemd
+- All environment variables (`VITE_*`) are baked into the JS bundle at build time
+- Supabase backend remains cloud-hosted — not on VPS
+
+**SPA routing requirement:** All client-side routes (`/auth/sign-in`, `/dashboards`, `/rvm/*`, `/search`) must resolve to `index.html` when accessed directly or refreshed. nginx `try_files $uri $uri/ /index.html` handles this.
+
+**Domain:** `rvmflow.com` (canonical, non-www). `www.rvmflow.com` → permanent 301 redirect.
+
+See [Phase 27 VPS Migration Blueprint](Phase-27-Hostinger-VPS-Migration-Preparation.md) for the complete migration plan including exact nginx config, migration sequence, rollback plan, and pre-migration checklist.

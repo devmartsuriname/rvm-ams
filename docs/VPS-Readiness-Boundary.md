@@ -2,7 +2,7 @@
 
 **Last updated:** 2026-03-21
 **Maintainer:** Devmart Governance
-**Based on:** Phase 25 Audit + Phase 26A + Phase 26B + Phase 26C
+**Based on:** Phase 25 Audit + Phase 26A + Phase 26B + Phase 26C + Phase 27
 
 This document is the authoritative boundary between what has been fixed for VPS migration, what can wait until after VPS, and what still needs action.
 
@@ -89,12 +89,15 @@ These are infrastructure-level items that require manual VPS configuration. They
 
 | Item | Action Required |
 |------|----------------|
-| Process manager | Install PM2 or configure systemd service |
-| Web server SPA routing | Configure nginx with `try_files $uri /index.html` fallback |
-| SSL/TLS | Configure Let's Encrypt or Hostinger SSL |
+| nginx SPA routing | `try_files $uri $uri/ /index.html` — exact config in Phase 27 blueprint |
+| SSL/TLS | Let's Encrypt via certbot — exact steps in Phase 27 blueprint |
 | Build on VPS | Copy `.env`, run `npm install && npm run build` |
-| Storage access | Verify Supabase Storage signed URL access from VPS origin |
-| External font CDN | Verify `fonts.googleapis.com` accessible from server/client |
+| Storage access | Verify Supabase Storage CORS allows VPS origin |
+| External font CDN | Verify `fonts.googleapis.com` accessible from client |
+
+**Note:** PM2 is NOT required. See Phase 27 for rationale (static files served by nginx; no Node.js runtime process).
+
+**Migration blueprint:** See [Phase 27 — Hostinger VPS Migration Preparation](Phase-27-Hostinger-VPS-Migration-Preparation.md) for the complete 16-step migration sequence, rollback plan, and pre-migration checklist.
 
 ---
 
@@ -105,18 +108,19 @@ These are infrastructure-level items that require manual VPS configuration. They
 | 26A | 5 critical code changes | ✅ COMPLETE |
 | 26B | axios-mock-adapter move; chair timestamp analysis | ✅ COMPLETE |
 | 26C | Chair approval DB trigger + code cleanup | ✅ COMPLETE |
+| 27 | VPS migration blueprint | ✅ COMPLETE (documentation) |
 | Post-VPS | Pagination, bundle cleanup, TypeScript strictness | 🔵 DEFERRED |
-| Infrastructure | nginx, PM2, SSL, build pipeline | 🔴 MUST DO before go-live |
+| Infrastructure | nginx, SSL, build, Supabase migration apply | 🔴 MUST EXECUTE before go-live |
 
 ---
 
 ## CURRENT VPS READINESS VERDICT
 
-**READY — PENDING INFRASTRUCTURE AND MIGRATION APPLY**
+**READY — EXECUTE MIGRATION BLUEPRINT**
 
-All application code blockers are resolved after Phase 26A + 26B + 26C. The only remaining items before go-live are:
+All application code blockers are resolved (Phase 26A + 26B + 26C). The migration blueprint is complete (Phase 27). Two execution steps remain before go-live:
 
-1. Apply migration `20260321210000_chair-approval-server-timestamp.sql` to the production Supabase project
-2. VPS infrastructure configuration — nginx SPA routing, PM2/systemd, SSL/TLS, `.env` file
+1. Apply migration `20260321210000_chair-approval-server-timestamp.sql` to production Supabase
+2. Execute VPS migration sequence — see [Phase 27 Blueprint](Phase-27-Hostinger-VPS-Migration-Preparation.md) Section 8 (Steps 1–16)
 
-After these two items are addressed, the system is fully ready for production on Hostinger VPS.
+The Phase 27 document contains the exact nginx config, SSL setup, DNS switching procedure, validation criteria, and rollback plan. No additional planning is required before migration can begin.
