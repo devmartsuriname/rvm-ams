@@ -54,7 +54,7 @@ async function searchDossiers(pattern: string, filters?: SearchFilters) {
     .limit(10)
 
   if (filters?.dossierStatus) {
-    q = q.eq('status', filters.dossierStatus)
+    q = q.eq('status', filters.dossierStatus as any)
   }
   if (filters?.dossierMinistry) {
     q = q.ilike('sender_ministry', `%${filters.dossierMinistry}%`)
