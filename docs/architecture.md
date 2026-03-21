@@ -42,6 +42,8 @@ Database:
 ## Security Model
 
 - Row Level Security on all tables
+- All INSERT/UPDATE policies are PERMISSIVE (Phase 23B fix: converted from RESTRICTIVE — PostgreSQL requires at least one PERMISSIVE policy to grant access)
+- SELECT policies are PERMISSIVE with role-based conditions
 - Role-based permission checks (`has_role()`, `has_any_role()`)
 - Immutability enforcement at database level
 - Audit trail is append-only (no UPDATE/DELETE on audit_event)

@@ -42,6 +42,7 @@
 | 21 | Test Accounts & Role Verification — All 5 seed accounts verified (login, dashboard, RLS enforcement). See [Role Verification Report](Phase-21-Role-Verification-Report.md) | CLOSED |
 | 22 | Workflow Simulation — Full governance lifecycle validated (5 scenarios, all PASS). Meeting model clarified: `draft→published→closed` (no `in_session`). See [Workflow Simulation Report](Phase-22-Workflow-Simulation-Report.md) | CLOSED |
 | 23 | Final QA & Production Readiness — Runtime QA (7 routes, 0 errors), data integrity (0 orphans), document storage code-verified, RLS/security confirmed, UX stability validated. See [Final QA Report](Phase-23-Final-QA-Report.md) | CLOSED |
+| 23B | Critical Remediation — Search enum ilike fix + RLS RESTRICTIVE→PERMISSIVE migration (17 policies across 9 tables). All INSERT/UPDATE policies were RESTRICTIVE-only, blocking all authenticated writes. Fixed by converting to PERMISSIVE with identical conditions. Document upload manual test pending. | IN PROGRESS |
 
 ## Database Architecture
 
