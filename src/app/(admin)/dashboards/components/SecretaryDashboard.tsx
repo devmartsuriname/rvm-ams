@@ -152,7 +152,7 @@ const SecretaryDashboard = () => {
                         <tr key={d.id}>
                           <td>{d.rvm_agenda_item?.agenda_number ?? '—'}</td>
                           <td>{d.decision_text.length > 80 ? d.decision_text.substring(0, 80) + '…' : d.decision_text}</td>
-                          <td><DecisionStatusBadge status={d.decision_status} /></td>
+                          <td><DecisionStatusBadge status={d.decision_status as any} /></td>
                           <td>
                             {d.rvm_agenda_item?.rvm_meeting ? (
                               <Link to={`/rvm/meetings/${d.rvm_agenda_item.rvm_meeting.id}`}>

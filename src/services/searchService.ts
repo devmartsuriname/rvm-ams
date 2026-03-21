@@ -118,7 +118,7 @@ async function searchDecisions(pattern: string, filters?: SearchFilters) {
     .limit(10)
 
   if (filters?.decisionStatus) {
-    q = q.eq('decision_status', filters.decisionStatus)
+    q = q.eq('decision_status', filters.decisionStatus as any)
   }
   if (filters?.decisionDateFrom) {
     q = q.gte('created_at', filters.decisionDateFrom)

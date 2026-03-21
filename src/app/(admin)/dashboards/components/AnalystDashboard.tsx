@@ -109,7 +109,7 @@ const AnalystDashboard = () => {
                               {t.priority ?? 'normal'}
                             </Badge>
                           </td>
-                          <td><TaskStatusBadge status={t.status} /></td>
+                          <td><TaskStatusBadge status={t.status as any} /></td>
                           <td>{t.due_at ? formatDate(t.due_at) : '—'}</td>
                         </tr>
                       ))

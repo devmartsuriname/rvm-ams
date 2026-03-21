@@ -114,7 +114,7 @@ const ChairDashboard = () => {
                           <td><Link to={`/rvm/meetings/${m.id}`}>{formatDate(m.meeting_date)}</Link></td>
                           <td><Badge bg="info" className="text-capitalize">{m.meeting_type ?? 'regular'}</Badge></td>
                           <td>{m.location ?? '—'}</td>
-                          <td><MeetingStatusBadge status={m.status} /></td>
+                          <td><MeetingStatusBadge status={m.status as any} /></td>
                         </tr>
                       ))
                     )}
