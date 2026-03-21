@@ -75,7 +75,7 @@ const ChairDashboard = () => {
                               </Link>
                             ) : '—'}
                           </td>
-                          <td><DecisionStatusBadge status={d.decision_status} /></td>
+                          <td><DecisionStatusBadge status={d.decision_status as any} /></td>
                         </tr>
                       ))
                     )}
