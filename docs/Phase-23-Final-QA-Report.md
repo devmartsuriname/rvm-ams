@@ -50,17 +50,17 @@
 - `enforce_document_lock_on_decision()` — blocks new versions on documents linked to finalized decisions
 - `enforce_dossier_immutability()` — blocks modifications when dossier is decided/archived/cancelled
 
-### Current Document Count: 0
+### Real Upload Test: ✅ PASS (Phase 23B Validated)
 
-Documents have never been tested with real file uploads. This is documented as a **manual testing requirement** — the code paths, RLS policies, and storage policies are architecturally sound.
-
-**Recommendation:** Before production go-live, execute a manual upload test:
-1. Login as `secretary@rvm.local`
-2. Navigate to any seed dossier → Documents tab
-3. Upload a small PDF file
-4. Verify version appears
-5. Download via signed URL
-6. Login as `observer@rvm.local` and verify no Upload button
+| Check | Status | Evidence |
+|-------|--------|----------|
+| Upload on draft dossier (RVM-SEED-001) | ✅ PASS | "Document uploaded successfully" toast |
+| `rvm_document` record created | ✅ PASS | ID `b20d9aaf-eff9-4c03-ae6c-8052989941b8`, title "Bewijs" |
+| `rvm_document_version` record created | ✅ PASS | ID `d1dfb0a1-2bbc-43db-915e-ac2f852fa290`, v1, 1927 bytes |
+| `current_version_id` set correctly | ✅ PASS | Points to version record |
+| Storage object exists | ✅ PASS | Path: `2d8c4c99.../b20d9aaf.../v1/Martin Menig_Nationaliteitverklaring.pdf` |
+| Governance rejection on locked dossier (RVM-SEED-006) | ✅ PASS | Toast: "Document creation blocked by governance enforcement. The dossier may be locked." |
+| Document visible in Documents tab | ✅ PASS | Shows title, type, confidentiality, version, uploader, date |
 
 ---
 
