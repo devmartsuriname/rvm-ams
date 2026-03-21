@@ -34,8 +34,9 @@ All conditions preserved identically. Only policy type changed from RESTRICTIVE 
 - Search fix: ✅ COMPLETE
 - RLS migration: ✅ COMPLETE
 - Document INSERT UX fix: ✅ COMPLETE
-- Document upload validation: ⏳ PARTIAL (manual test required)
-- Overall: **PARTIAL** — awaiting manual document upload test
+- Document upload validation: ✅ COMPLETE (manually validated 2026-03-21)
+- Governance rejection UX: ✅ COMPLETE (locked dossier shows descriptive toast)
+- Overall: **✅ COMPLETE**
 
 ## Additional Changes (Post-RLS Fix)
 
