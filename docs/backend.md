@@ -42,7 +42,9 @@
 | 21 | Test Accounts & Role Verification — All 5 seed accounts verified (login, dashboard, RLS enforcement). See [Role Verification Report](Phase-21-Role-Verification-Report.md) | CLOSED |
 | 22 | Workflow Simulation — Full governance lifecycle validated (5 scenarios, all PASS). Meeting model clarified: `draft→published→closed` (no `in_session`). See [Workflow Simulation Report](Phase-22-Workflow-Simulation-Report.md) | CLOSED |
 | 23 | Final QA & Production Readiness — Runtime QA (7 routes, 0 errors), data integrity (0 orphans), document storage code-verified, RLS/security confirmed, UX stability validated. See [Final QA Report](Phase-23-Final-QA-Report.md) | CLOSED |
-| 23B | Critical Remediation — Search enum ilike fix + RLS RESTRICTIVE→PERMISSIVE migration (17 policies across 9 tables). All INSERT/UPDATE policies were RESTRICTIVE-only, blocking all authenticated writes. Fixed by converting to PERMISSIVE with identical conditions. Document upload manual test pending. | IN PROGRESS |
+| 23B | Critical Remediation — Search enum ilike fix + RLS RESTRICTIVE→PERMISSIVE migration (17 policies across 9 tables) + document upload guarded INSERT pattern. All validated. | CLOSED |
+| 24 | Security Review & Hardening Audit — RLS audit (14 tables PASS), storage audit, auth/session review, governance trigger audit (9 triggers), super admin review, dependency audit (~17 unused), data exposure check. See [Security Review Report](Phase-24-Security-Review-Report.md) | CLOSED |
+| 25 | Production Readiness & Go-Live — Environment audit, domain validation (rvmflow.com), role-based access testing, document flow validation, super admin deactivation, performance baseline. 7/7 manual validation PASS. See [Production Readiness](Phase-25-Production-Readiness.md) | CLOSED |
 
 ## Database Architecture
 
