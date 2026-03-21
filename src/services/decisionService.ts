@@ -133,15 +133,14 @@ export const decisionService = {
 
   /**
    * Record Chair RVM approval (manual recording, no automation)
-   * NOTE: This does NOT auto-finalize. Chair gate enforcement is Phase 5.
-   * This method is for RECORDING that approval was given.
+   * chair_approved_at is set server-side by the set_chair_approval_timestamp trigger
+   * (Phase 26C migration). Do NOT add it to this payload.
    */
   async recordChairApproval(id: string, chairUserId: string) {
     const result = await supabase
       .from('rvm_decision')
       .update({
         chair_approved_by: chairUserId,
-        chair_approved_at: new Date().toISOString(),
       })
       .eq('id', id)
       .select()

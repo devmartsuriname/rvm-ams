@@ -2,7 +2,7 @@
 
 **Last updated:** 2026-03-21
 **Maintainer:** Devmart Governance
-**Based on:** Phase 25 Audit + Phase 26A + Phase 26B
+**Based on:** Phase 25 Audit + Phase 26A + Phase 26B + Phase 26C
 
 This document is the authoritative boundary between what has been fixed for VPS migration, what can wait until after VPS, and what still needs action.
 
@@ -39,6 +39,14 @@ This document is the authoritative boundary between what has been fixed for VPS 
 
 ---
 
+## FIXED IN PHASE 26C
+
+| Item | File | Severity |
+|------|------|----------|
+| `chair_approved_at` set client-side — DB trigger added | `supabase/migrations/20260321210000_chair-approval-server-timestamp.sql`, `src/services/decisionService.ts` | HIGH |
+
+---
+
 ## DEFERRED — CAN WAIT UNTIL AFTER VPS
 
 These do not block VPS migration and are acceptable at current scale.
@@ -67,42 +75,11 @@ These do not block VPS migration and are acceptable at current scale.
 
 ## PENDING — MUST BE DONE BEFORE VPS GO-LIVE
 
-These remain unresolved and should be addressed in Phase 26C or a dedicated pre-VPS phase.
+### ✅ Chair Approval Timestamp — RESOLVED in Phase 26C
 
-### 🔴 Chair Approval Timestamp — DB-Level Hardening Required
-
-**Severity:** HIGH
 **Finding:** H3 from Phase 25 audit
-**Current state:** `chair_approved_at` is set client-side in `decisionService.recordChairApproval()`. A user with the appropriate role could manipulate their system clock to backdate or future-date an approval.
-
-**Why code-level fix is not valid:**
-The trigger `enforce_chair_approval_gate()` checks that `chair_approved_at IS NOT NULL` before allowing finalization. It does NOT assign the value. There is no server-side mechanism that sets `chair_approved_at`. Removing it from the client update would leave the field permanently NULL, permanently blocking all decision finalization.
-
-**Required implementation (Phase 26C or earlier):**
-
-Add a new DB trigger (migration required):
-
-```sql
-CREATE OR REPLACE FUNCTION public.set_chair_approval_timestamp()
-RETURNS TRIGGER AS $$
-BEGIN
-  -- Auto-set server-side timestamp when chair_approved_by is first assigned
-  IF NEW.chair_approved_by IS NOT NULL AND OLD.chair_approved_by IS NULL THEN
-    NEW.chair_approved_at := now();
-  END IF;
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql SET search_path TO 'public';
-
-CREATE TRIGGER set_chair_approval_timestamp
-  BEFORE UPDATE ON public.rvm_decision
-  FOR EACH ROW
-  EXECUTE FUNCTION public.set_chair_approval_timestamp();
-```
-
-After this migration is applied, **remove `chair_approved_at: new Date().toISOString()` from `decisionService.recordChairApproval()`** in application code.
-
-**Risk until fixed:** Audit trail timestamp for chair approvals is not server-authoritative. In a government system, this is a governance integrity risk.
+**Resolution:** DB trigger `set_chair_approval_timestamp` added via migration `20260321210000_chair-approval-server-timestamp.sql`. Client-side assignment removed from `decisionService.recordChairApproval()`.
+**Migration status:** File committed. Must be applied to production Supabase project (`supabase db push` or SQL editor) before go-live.
 
 ---
 
@@ -127,7 +104,7 @@ These are infrastructure-level items that require manual VPS configuration. They
 |-------|-------|--------|
 | 26A | 5 critical code changes | ✅ COMPLETE |
 | 26B | axios-mock-adapter move; chair timestamp analysis | ✅ COMPLETE |
-| 26C (proposed) | Chair approval DB trigger + code cleanup | 🟡 PENDING |
+| 26C | Chair approval DB trigger + code cleanup | ✅ COMPLETE |
 | Post-VPS | Pagination, bundle cleanup, TypeScript strictness | 🔵 DEFERRED |
 | Infrastructure | nginx, PM2, SSL, build pipeline | 🔴 MUST DO before go-live |
 
@@ -135,11 +112,11 @@ These are infrastructure-level items that require manual VPS configuration. They
 
 ## CURRENT VPS READINESS VERDICT
 
-**READY WITH CONDITIONS**
+**READY — PENDING INFRASTRUCTURE AND MIGRATION APPLY**
 
-Application code is VPS-compatible after Phase 26A + 26B. The remaining blocker before go-live is:
+All application code blockers are resolved after Phase 26A + 26B + 26C. The only remaining items before go-live are:
 
-1. Chair approval timestamp DB hardening (Phase 26C) — governance integrity risk
-2. VPS infrastructure configuration — nginx, PM2, SSL, `.env` setup
+1. Apply migration `20260321210000_chair-approval-server-timestamp.sql` to the production Supabase project
+2. VPS infrastructure configuration — nginx SPA routing, PM2/systemd, SSL/TLS, `.env` file
 
 After these two items are addressed, the system is fully ready for production on Hostinger VPS.
