@@ -16,7 +16,7 @@
 | `/rvm/decisions` | ✅ PASS | 13 decisions displayed with correct statuses |
 | `/rvm/tasks` | ✅ PASS | 10 tasks loaded with assignment info |
 | `/rvm/audit` | ✅ PASS | 133 audit events, expandable JSON payloads |
-| `/search` | ✅ PASS | Cross-entity search functional |
+| `/search` | ✅ PASS | Cross-entity search functional (Phase 23B: fixed `meeting_type` enum ilike crash) |
 
 **Console Errors:** None  
 **Network Errors:** None
