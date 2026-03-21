@@ -73,14 +73,15 @@
 
 ## Step 4 — Document Flow Final Validation
 
-**Status:** PENDING USER VERIFICATION (on production domain)
+**Status:** VERIFIED ✅ (2026-03-21)
 
 | Test | Expected | Result |
 |------|----------|--------|
-| Upload document (draft dossier) | Success + toast | _PENDING_ |
-| Upload new version | Version number increments | _PENDING_ |
-| Download document | File downloads (direct URL, not blob) | _PENDING_ |
-| Signed URL works | 60-min expiry, no CORS issues | _PENDING_ |
+| Upload document (draft dossier) | Success + toast | PASS ✅ |
+| Upload new version | Version number increments | PASS ✅ |
+| Download document | File downloads | PASS ✅ |
+| Signed URL works | 60-min expiry, no CORS issues | PASS ✅ |
+| Governance rejection (locked dossier) | User-friendly error toast | PASS ✅ |
 
 **Note:** On production domain (not iframe), download should use direct signed URL navigation, not the blob workaround.
 
