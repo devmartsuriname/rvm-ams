@@ -52,14 +52,29 @@ const DocumentVersionModal = ({ show, onHide, documentId, documentTitle, dossier
   }
 
   const handleDownload = async (storagePath: string, fileName: string) => {
+    let blobUrl: string | null = null
     try {
-      const url = await documentService.getDownloadUrl(storagePath)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = fileName
-      a.click()
+      const signedUrl = await documentService.getDownloadUrl(storagePath)
+      const isIframe = window.self !== window.top
+      if (isIframe) {
+        const response = await fetch(signedUrl)
+        if (!response.ok) throw new Error('Download failed')
+        const blob = await response.blob()
+        blobUrl = URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = blobUrl
+        a.download = fileName
+        a.click()
+      } else {
+        const a = document.createElement('a')
+        a.href = signedUrl
+        a.download = fileName
+        a.click()
+      }
     } catch (err) {
       toast.error(getErrorMessage(err))
+    } finally {
+      if (blobUrl) URL.revokeObjectURL(blobUrl)
     }
   }
 
