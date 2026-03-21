@@ -77,7 +77,7 @@ async function searchMeetings(pattern: string, filters?: SearchFilters) {
     q = q.eq('meeting_type', filters.meetingType as any)
   }
   if (filters?.meetingStatus) {
-    q = q.eq('status', filters.meetingStatus)
+    q = q.eq('status', filters.meetingStatus as any)
   }
   if (filters?.meetingDateFrom) {
     q = q.gte('meeting_date', filters.meetingDateFrom)
