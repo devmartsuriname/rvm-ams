@@ -1,6 +1,6 @@
 # AMS-RVM System Architecture
 
-**Last Updated:** 2026-03-05 (Phase 21 Complete — Test Accounts & Role Verification)
+**Last Updated:** 2026-03-21 (Phase 22 Complete — Workflow Simulation)
 
 ---
 
@@ -121,3 +121,18 @@ All 9 phases + Phase 9B + Phase 9C CLOSED as of 2026-02-26. Phase 10A–10D CLOS
 - **Path pattern:** `{dossierId}/{documentId}/{timestamp}_{filename}`
 - **Access:** Signed URLs generated server-side for downloads (60-second expiry)
 - **No public access** — all reads go through Supabase storage RLS
+
+### Meeting Lifecycle Clarification (Phase 22)
+
+The meeting status model is: `draft → published → closed`. The `in_session` state is **not part of the current data model**. The RVM workflow treats meeting progression as an administrative status change, not a real-time session tracker.
+
+### Phase 22 — Workflow Simulation
+
+Full governance lifecycle validated via database state analysis and code-level verification. All 5 scenarios passed:
+- Scenario 1 (Happy Path): Secretary → Meeting → Agenda → Decision → Chair Approve → Finalize → Dossier cascade ✅
+- Scenario 2 (Invalid Transitions): Finalized decision lock, closed meeting immutability, decided dossier RLS block ✅
+- Scenario 3 (Role Violations): Observer read-only, admin_agenda no decision approval, admin_dossier no meeting creation ✅
+- Scenario 4 (Task Flow): Creation, assignment, status transitions (todo→in_progress→done) ✅
+- Scenario 5 (Document Flow): Code-verified upload, versioning, signed URL download, decision lock ✅
+
+See [Phase 22 Workflow Simulation Report](Phase-22-Workflow-Simulation-Report.md) for full details.
