@@ -1,99 +1,77 @@
-# Phase 23B — Document Upload Root Cause & Fix
+# Fix: Document Download Blocked by Chrome Iframe Sandbox
 
-## Root Cause (Confirmed)
+## Root Cause
 
-The upload was attempted on dossier **RVM-SEED-005** which has status `decided`. The `enforce_dossier_immutability` BEFORE INSERT trigger on `rvm_document` checks the linked dossier's status and returns `NULL` (silently blocks) for dossiers in `decided`, `archived`, or `cancelled` states. This causes `.select().single()` to receive 0 rows → PostgREST error PGRST116 "Cannot coerce the result to a single JSON object".
+The Lovable preview runs inside a sandboxed iframe. When the download handler creates an `<a>` element pointing to the Supabase storage signed URL (cross-origin) and calls `.click()`, Chrome blocks the navigation as an "unsafe attempt to load URL from frame."
 
-**The RLS PERMISSIVE fix was correct and necessary.** The current failure is NOT an RLS issue — it is a governance enforcement trigger working as designed, but the error is not surfaced correctly to the user.
+## Fix
 
-## Two Issues to Fix
+Replace the anchor-click pattern with a **fetch-as-blob** approach: fetch the signed URL content, create a local blob URL, and trigger the download from that. This avoids cross-origin navigation entirely.
 
-### Issue 1: UX — Silent governance rejection shows cryptic error
+Affected files:
 
-The `documentService.createDocument()` uses `.select().single()` which throws a generic PostgREST error when `RETURN NULL` blocks the insert. The `handleGuardedUpdate` utility already handles this pattern, but it is not used for the initial INSERT — only for the step-4 `current_version_id` update.
+- `src/components/rvm/DossierDocumentsTab.tsx` (lines 42-46)
+- `src/components/rvm/DocumentVersionModal.tsx` (lines 54-58)
 
-**Fix:** Replace `.select().single()` with `.select()` (no `.single()`) and check for empty result array. If empty, fetch the violation reason from `rvm_illegal_attempt_log` using the existing `fetchViolationReason()` utility.
-
-**File:** `src/services/documentService.ts` — lines 59-73
+## Implementation
 
 ```typescript
-// Current:
-const { data: doc, error: docError } = await supabase
-  .from('rvm_document')
-  .insert({...})
-  .select()
-  .single()
-if (docError) throw docError
-
-// Fixed:
-const { data: docs, error: docError } = await supabase
-  .from('rvm_document')
-  .insert({...})
-  .select()
-if (docError) throw docError
-if (!docs || docs.length === 0) {
-  const reason = await fetchViolationReason('rvm_document', dossierId)
-  throw new Error(reason ?? 'Document creation blocked by governance enforcement.')
+const handleDownload = async (...) => {
+  const signedUrl = await documentService.getDownloadUrl(storagePath)
+  const response = await fetch(signedUrl)
+  const blob = await response.blob()
+  const blobUrl = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = blobUrl
+  a.download = fileName
+  a.click()
+  URL.revokeObjectURL(blobUrl)
 }
-const doc = docs[0]
 ```
 
-### Issue 2: Same pattern needed for version INSERT (line 87-101)
-
-The `rvm_document_version` table also has a trigger. Same fix: replace `.select().single()` with `.select()` + empty-check.
-
-## Validation Plan
-
-After the fix, test with:
-
-1. **Blocked dossier** (RVM-SEED-005, status `decided`) → should show "Cannot modify entities in locked dossier" toast
-2. **Open dossier** (RVM-SEED-001, status `draft`) → should upload successfully
-
-## Operations (3 total, within 5-op limit)
+## Operations
 
 
-| #   | Op     | File                                                                                             |
-| --- | ------ | ------------------------------------------------------------------------------------------------ |
-| 1   | Edit   | `src/services/documentService.ts` — replace `.single()` with guarded empty-check on INSERT paths |
-| 2   | Update | `docs/Phase-23-Final-QA-Report.md` — document root cause and fix                                 |
-| 3   | Update | `Project Restore Points/RP-P23B-doc-validation-post.md` — update with final status               |
+| #   | Op   | File                                                          |
+| --- | ---- | ------------------------------------------------------------- |
+| 1   | Edit | `src/components/rvm/DossierDocumentsTab.tsx` — blob download  |
+| 2   | Edit | `src/components/rvm/DocumentVersionModal.tsx` — blob download |
 
 
+**Total: 2 ops**  
   
-**Governance Note — Completion Evidence Required**
+**NOTE — Governance & Production Safety Additions**
 
-Phase 23B may only be marked COMPLETE after both validation cases pass with evidence:
+1. Environment Awareness
 
-1. Blocked dossier validation
+- Detect if running inside iframe (window.self !== [window.top](http://window.top))
 
-   - Upload attempt on a decided dossier must show the correct governance rejection message
+- Apply blob-download ONLY in iframe context
 
-   - No cryptic PostgREST error may remain
+- Use direct signed URL navigation in production
 
-2. Open dossier validation
+2. Memory Safety
 
-   - Upload on an open dossier must complete successfully
+- Ensure URL.revokeObjectURL(blobUrl) is ALWAYS called (try/finally)
 
-   - Verify:
+3. Error Handling
 
-     a) rvm_document row created
+- If fetch fails → show user-friendly error toast:
 
-     b) rvm_document_version row created
+  "Download failed. Please try again or contact support."
 
-     c) current_version_id set correctly
+4. Audit Compliance (MANDATORY)
 
-     d) storage object exists
+- Log download attempt in audit_log (if not already implemented)
 
-     e) signed URL download works
+- Include: user_id, document_id, timestamp
 
-If only the blocked-dossier UX is fixed but the open-dossier upload is not verified end-to-end,
+5. File Size Constraint
 
-Phase 23B must remain PARTIAL.  
-  
-**Governance Note**
+- Validate behavior for large files (>10MB)
 
-- No schema changes
-- No RLS changes
-- No trigger changes
-- This is a client-side error handling fix only
-- The trigger is working correctly — the UX was not handling the `RETURN NULL` pattern for INSERT operations
+- Blob approach must not freeze UI
+
+6. No Backend Changes Rule
+
+- Confirm: NO changes to storage, RLS, or signed URL generation
