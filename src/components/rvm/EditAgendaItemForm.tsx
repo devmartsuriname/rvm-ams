@@ -63,9 +63,9 @@ const EditAgendaItemForm = ({ item, onCancel }: EditAgendaItemFormProps) => {
             isInvalid={isDuplicateNumber}
           />
           {isDuplicateNumber && (
-            <Form.Control.Feedback type="invalid" className="small">
+            <div className="invalid-feedback d-block small">
               Duplicate
-            </Form.Control.Feedback>
+            </div>
           )}
         </Col>
         <Col xs={4}>

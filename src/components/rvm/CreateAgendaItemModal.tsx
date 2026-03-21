@@ -106,9 +106,9 @@ const CreateAgendaItemModal = ({ show, onHide, meetingId }: CreateAgendaItemModa
                   isInvalid={isDuplicateNumber}
                 />
                 {isDuplicateNumber && (
-                  <Form.Control.Feedback type="invalid">
+                  <div className="invalid-feedback d-block">
                     Agenda number {agendaNumber} is already in use for this meeting.
-                  </Form.Control.Feedback>
+                  </div>
                 )}
               </Form.Group>
             </Col>

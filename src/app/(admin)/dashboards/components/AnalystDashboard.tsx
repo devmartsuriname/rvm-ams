@@ -68,7 +68,7 @@ const AnalystDashboard = () => {
                         <tr key={d.id}>
                           <td><Link to={`/rvm/dossiers/${d.id}`}>{d.dossier_number}</Link></td>
                           <td>{d.title.length > 40 ? d.title.substring(0, 40) + '…' : d.title}</td>
-                          <td><DossierStatusBadge status={d.status} /></td>
+                          <td><DossierStatusBadge status={d.status as any} /></td>
                           <td>{d.sender_ministry}</td>
                         </tr>
                       ))
@@ -109,7 +109,7 @@ const AnalystDashboard = () => {
                               {t.priority ?? 'normal'}
                             </Badge>
                           </td>
-                          <td><TaskStatusBadge status={t.status} /></td>
+                          <td><TaskStatusBadge status={t.status as any} /></td>
                           <td>{t.due_at ? formatDate(t.due_at) : '—'}</td>
                         </tr>
                       ))

@@ -54,7 +54,7 @@ async function searchDossiers(pattern: string, filters?: SearchFilters) {
     .limit(10)
 
   if (filters?.dossierStatus) {
-    q = q.eq('status', filters.dossierStatus)
+    q = q.eq('status', filters.dossierStatus as any)
   }
   if (filters?.dossierMinistry) {
     q = q.ilike('sender_ministry', `%${filters.dossierMinistry}%`)
@@ -74,10 +74,10 @@ async function searchMeetings(pattern: string, filters?: SearchFilters) {
     .limit(10)
 
   if (filters?.meetingType) {
-    q = q.eq('meeting_type', filters.meetingType)
+    q = q.eq('meeting_type', filters.meetingType as any)
   }
   if (filters?.meetingStatus) {
-    q = q.eq('status', filters.meetingStatus)
+    q = q.eq('status', filters.meetingStatus as any)
   }
   if (filters?.meetingDateFrom) {
     q = q.gte('meeting_date', filters.meetingDateFrom)
@@ -99,7 +99,7 @@ async function searchAgendaItems(pattern: string, filters?: SearchFilters) {
     .limit(10)
 
   if (filters?.agendaStatus) {
-    q = q.eq('status', filters.agendaStatus)
+    q = q.eq('status', filters.agendaStatus as any)
   }
   if (filters?.agendaMeetingId) {
     q = q.eq('meeting_id', filters.agendaMeetingId)
@@ -118,7 +118,7 @@ async function searchDecisions(pattern: string, filters?: SearchFilters) {
     .limit(10)
 
   if (filters?.decisionStatus) {
-    q = q.eq('decision_status', filters.decisionStatus)
+    q = q.eq('decision_status', filters.decisionStatus as any)
   }
   if (filters?.decisionDateFrom) {
     q = q.gte('created_at', filters.decisionDateFrom)

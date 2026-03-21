@@ -5,7 +5,7 @@ import { DecisionLifecycleBadge } from '@/components/rvm/StatusBadges'
 export interface DecisionReportData {
   id: string
   decision_text: string
-  decision_status: string | null
+  decision_status: any
   is_final: boolean | null
   created_at: string | null
   chair_approved_at?: string | null
