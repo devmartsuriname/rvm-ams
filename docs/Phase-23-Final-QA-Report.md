@@ -204,6 +204,44 @@ This is **NOT** a gap — it is the designed architecture.
 3. **RECOMMENDED:** Run Lighthouse audit on published URL
 4. **OPTIONAL:** Add `expires_at` enforcement to `is_super_admin()` function
 
+---
+
+## Phase 23B — Remediation Log
+
+**Date:** 2026-03-21  
+**Type:** Critical fix
+
+### BLOCKER 1 — Search Runtime Error: ✅ FIXED
+
+**Root Cause:** `src/services/searchService.ts` line 72 used `.ilike` on `meeting_type` (PostgreSQL enum). Enums do not support pattern matching operators.
+
+**Fix Applied:** Removed `meeting_type.ilike.${pattern}` from the `.or()` filter. Meeting type filtering is correctly handled by the existing `.eq()` filter on line 77.
+
+**File Changed:** `src/services/searchService.ts` (1 line edit)
+
+### BLOCKER 2 — Document Upload: ⏳ AWAITING MANUAL TEST
+
+Document upload has been validated at the code architecture level (see Step 2 above). A real file upload test must be performed manually by the user to complete this validation.
+
+**Required Manual Steps:**
+1. Login as `secretary@rvm.local` → Dossiers → any seed dossier → Documents tab
+2. Click "Upload Document" → select a small PDF/TXT file
+3. Verify document appears in the Documents tab
+4. Upload a second version via the version modal
+5. Download via signed URL
+6. Login as `observer@rvm.local` → verify no Upload button renders
+
+**Until manual test is completed, Phase 23B status: PARTIAL**
+
+### Phase 23B Overall Status
+
+| Blocker | Status |
+|---------|--------|
+| Search enum ilike fix | ✅ COMPLETE |
+| Document upload validation | ⏳ PARTIAL (manual test required) |
+
+**Phase 23B: PARTIAL — search fix complete; document upload awaiting manual validation.**
+
 ### Overall Verdict
 
 **READY FOR RVM TESTING** — all governance workflows, RBAC, RLS, audit trails, and status machines are fully operational. Document storage is architecturally complete and code-verified; a manual upload test is the only remaining validation gap.
