@@ -1,75 +1,120 @@
-# Phase 23B — Critical Remediation Plan
+# Phase 23B — Document Upload Validation & Critical RLS Fix
 
-## BLOCKER 1 — Search Runtime Error
+## Root Cause Identified
 
-**File:** `src/services/searchService.ts`, line 72
+The error "Cannot coerce the result to a single JSON object" (HTTP 406) is caused by a **systemic RLS policy defect**: ALL INSERT and UPDATE policies across every domain table are `RESTRICTIVE` with no `PERMISSIVE` counterpart.
 
-**Current:** `.or(`location.ilike.${pattern},meeting_type.ilike.${pattern}`)`
+PostgreSQL RLS requires at least one PERMISSIVE policy to grant access. RESTRICTIVE policies can only narrow access granted by PERMISSIVE ones. With only RESTRICTIVE INSERT/UPDATE policies, **no authenticated user can write to any table** through the Supabase client.
 
-**Fix:** `.or(`location.ilike.${pattern}`)`
+### Affected Tables (17 policies total)
 
-The `meeting_type` column is a PostgreSQL enum and cannot use `ilike`. The existing `.eq()` filter on line 77 already handles meeting type filtering correctly.
+```text
+missive_keyword    — INSERT, UPDATE
+rvm_agenda_item    — INSERT, UPDATE
+rvm_decision       — INSERT, UPDATE
+rvm_document       — INSERT, UPDATE
+rvm_document_version — INSERT
+rvm_dossier        — INSERT, UPDATE
+rvm_item           — INSERT, UPDATE
+rvm_meeting        — INSERT, UPDATE
+rvm_task           — INSERT, UPDATE
+```
 
-**1 file edit.**
+This explains why the document upload fails and why no real user has successfully created any entity through the UI (all seed data was created via SERVICE_ROLE_KEY which bypasses RLS).
 
-## BLOCKER 2 — Document Upload Validation
+### Why this was not caught earlier
 
-This requires real browser interaction. The plan:
+Phase 20 seeder uses `SERVICE_ROLE_KEY` (bypasses RLS). Phase 21-22 tests were code-level verifications, not real browser interactions. This is the first real user-initiated write operation.
 
-1. Log in as `secretary@rvm.local` in the preview
-2. Navigate to a seed dossier's Documents tab
-3. Attempt file upload via the UI modal
-4. Verify DB records created (`rvm_document`, `rvm_document_version`)
-5. Verify storage bucket file exists
-6. Test download via signed URL
-7. Log in as `observer@rvm.local` and verify no Upload button renders
+---
 
-**Note:** Browser automation cannot interact with native file dialogs. The user will need to perform the actual file selection manually. I can verify the surrounding UI (upload button visibility, modal rendering, observer restrictions) and confirm DB/storage state after upload.  
+## Fix
+
+**Single migration**: Drop all 17 RESTRICTIVE INSERT/UPDATE policies and recreate them as PERMISSIVE with identical conditions.
+
+The storage.objects policies are already PERMISSIVE (correct) — no changes needed there.
+
+---
+
+## Execution Plan
+
+
+| #   | Op        | Description                                                          |
+| --- | --------- | -------------------------------------------------------------------- |
+| 1   | Create    | `Project Restore Points/RP-P23B-doc-validation-pre.md`               |
+| 2   | Migration | Convert 17 RESTRICTIVE INSERT/UPDATE policies to PERMISSIVE          |
+| 3   | Update    | `docs/Phase-23-Final-QA-Report.md` — add document validation results |
+| 4   | Create    | `Project Restore Points/RP-P23B-doc-validation-post.md`              |
+| 5   | Update    | `docs/architecture.md` + `docs/backend.md` — note RLS fix            |
+
+
+After the migration, the user will need to manually test the document upload flow to confirm PASS status. If upload succeeds, Phase 23B is marked COMPLETE. If not, remains PARTIAL.
+
+---
+
+**Governance Note — CRITICAL RLS DEFECT (BLOCKING)**
+
+The current failure is not a UI or API issue but a SYSTEM-WIDE RLS MISCONFIGURATION.
+
+All INSERT/UPDATE policies are defined as RESTRICTIVE without any PERMISSIVE base policy.
+
+This results in:
+
+- ALL authenticated writes being blocked
+
+- System effectively read-only for all users
+
+- Seeder bypassed this via SERVICE_ROLE_KEY (not representative of real usage)
+
+This is a CRITICAL BLOCKER for production.
+
+---
+
+Required correction:
+
+1. Convert all INSERT and UPDATE policies from RESTRICTIVE → PERMISSIVE
+
+2. Preserve ALL existing conditions (no logic change)
+
+3. Do NOT modify SELECT policies
+
+4. Do NOT modify storage policies (already correct)
+
+---
+
+Execution classification:
+
+This is NOT a feature change.
+
+This is a SYSTEM CORRECTION to restore intended behavior.
+
+---
+
+Completion rule:
+
+Phase 23B cannot be marked COMPLETE until:
+
+- RLS fix applied
+
+- Document upload succeeds via real user
+
+- At least one write operation succeeds (document OR dossier OR task)
+
+Until then:
+
+→ Status must remain BLOCKED / PARTIAL  
   
-**Governance Note (Required Before Approval)**
+  
+  
+**Technical Detail — Migration SQL**
 
-This Phase 23B remediation includes a code change and therefore must follow full Devmart phase governance.
+```sql
+-- For each of the 17 policies:
+-- DROP POLICY "<name>" ON <table>;
+-- CREATE POLICY "<name>" ON <table>
+--   FOR <INSERT|UPDATE> TO authenticated
+--   USING (<same condition>)        -- for UPDATE
+--   WITH CHECK (<same condition>);  -- for INSERT
+```
 
-Add the following before execution:
-
-1. Create pre-restore point:
-
-   Project Restore Points/[RP-P23B-remediation-pre.md](http://RP-P23B-remediation-pre.md)
-
-2. Create post-restore point:
-
-   Project Restore Points/[RP-P23B-remediation-post.md](http://RP-P23B-remediation-post.md)
-
-3. Update the remediation completion rule:
-
-   - Search fix is only COMPLETE after /search runs without runtime error
-
-   - Document validation is only COMPLETE after a real file upload is manually performed and verified through:
-
-     a) UI upload success
-
-     b) rvm_document record created
-
-     c) rvm_document_version record created
-
-     d) storage object exists
-
-     e) signed URL download works
-
-     f) observer cannot upload
-
-4. If the real upload is not manually completed, Phase 23B must be marked PARTIAL, not COMPLETE.
-
-This remediation may not proceed without restore points.
-
-## Deliverable
-
-Update `docs/Phase-23-Final-QA-Report.md` with search fix confirmation and document test results.
-
-## Operations (2 total, within 5-op limit)
-
-
-| #   | Op     | File                                                          |
-| --- | ------ | ------------------------------------------------------------- |
-| 1   | Edit   | `src/services/searchService.ts` — remove enum ilike (line 72) |
-| 2   | Update | `docs/Phase-23-Final-QA-Report.md` — add remediation results  |
+All conditions remain identical. Only the policy type changes from RESTRICTIVE to PERMISSIVE (which is the PostgreSQL default when no `AS RESTRICTIVE` clause is specified).
