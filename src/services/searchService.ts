@@ -74,7 +74,7 @@ async function searchMeetings(pattern: string, filters?: SearchFilters) {
     .limit(10)
 
   if (filters?.meetingType) {
-    q = q.eq('meeting_type', filters.meetingType)
+    q = q.eq('meeting_type', filters.meetingType as any)
   }
   if (filters?.meetingStatus) {
     q = q.eq('status', filters.meetingStatus)
