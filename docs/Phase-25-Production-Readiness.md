@@ -188,6 +188,26 @@ No optimization work in this phase. Baseline documentation only.
 
 ---
 
+## Phase 25 — Formal Validation Results
+
+**Validated by:** Devmart
+**Validation date:** 2026-03-21
+**Method:** Manual browser testing on rvmflow.com (production domain)
+
+| Test Area | Description | Result | Evidence |
+|-----------|-------------|--------|----------|
+| Domain | rvmflow.com loads with HTTPS | PASS | Step 2 — user-verified 2026-03-21 |
+| Routing | Direct URLs work (/auth/sign-in, /dashboards, /rvm/dossiers, /rvm/meetings, /search) | PASS | Step 2 — 5 routes + SPA refresh verified |
+| Role Access | secretary, chair, observer permissions validated | PASS | Step 3 — 3 roles verified with menu + write + URL escalation checks |
+| Document Upload | Upload works on draft dossier | PASS | Step 4 — success toast confirmed, Phase 23B evidence |
+| Document Download | Signed URL download works | PASS | Step 4 — blob workaround in preview, direct URL on production |
+| Governance Block | Locked dossier prevents upload with correct message | PASS | Step 4 — user-friendly error toast on decided dossier |
+| Performance | Dashboard ~1s, Search ~1s, Upload ~2s | PASS | Step 8 — all within target thresholds |
+
+**Result: 7/7 PASS — All validation criteria met.**
+
+---
+
 ## Readiness Verdict
 
 **READY FOR PRODUCTION ✅**

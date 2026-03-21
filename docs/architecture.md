@@ -1,6 +1,6 @@
 # AMS-RVM System Architecture
 
-**Last Updated:** 2026-03-21 (Phase 23 Complete — Final QA & Production Readiness)
+**Last Updated:** 2026-03-21 (Phase 25 Complete — Production Readiness & Go-Live)
 
 ---
 
@@ -144,3 +144,15 @@ See [Phase 22 Workflow Simulation Report](Phase-22-Workflow-Simulation-Report.md
 Full system QA completed: 7 routes verified (no console/network errors), data integrity validated (0 orphans, 0 duplicates), document storage architecture code-verified, RLS/RBAC confirmed across all domain tables, UX stability verified (isPending guards, loading/error states). Documents module confirmed as dossier-scoped by design (no standalone route). Production readiness: GREEN for core workflows, YELLOW for bundle health (~18 unused deps).
 
 See [Phase 23 Final QA Report](Phase-23-Final-QA-Report.md) for full details.
+
+### Phase 24 — Security Review & Hardening Audit
+
+Comprehensive security audit: 14 domain/system tables RLS-audited (all PASS), storage bucket policies verified, auth/session security validated, 9 governance triggers confirmed, super admin bootstrap reviewed (MEDIUM risk — must deactivate before production), ~17 unused dependencies identified (LOW risk), no sensitive data exposure found. Verdict: READY WITH CONDITIONS.
+
+See [Phase 24 Security Review Report](Phase-24-Security-Review-Report.md) for full details.
+
+### Phase 25 — Production Readiness & Go-Live
+
+Environment configuration audited, domain (rvmflow.com) validated with HTTPS, 5 routes verified via direct URL, role-based access tested for 3 roles, document upload/download confirmed on production domain, governance block validated, super admin deactivated, performance baseline documented. 7/7 manual validation tests PASS.
+
+See [Phase 25 Production Readiness](Phase-25-Production-Readiness.md) for full details.
