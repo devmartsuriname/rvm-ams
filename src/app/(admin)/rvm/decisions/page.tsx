@@ -9,6 +9,7 @@ import { EmptyState, LoadingState, ErrorState } from '@/components/rvm/StateComp
 import DecisionReport from '@/components/rvm/DecisionReport'
 import type { Enums } from '@/integrations/supabase/types'
 import IconifyIcon from '@/components/wrapper/IconifyIcon'
+import { formatDate } from '@/utils/date'
 
 type DecisionStatus = Enums<'decision_status'>
 type SortField = 'agenda_number' | 'created_at' | 'decision_status' | 'meeting_date'
