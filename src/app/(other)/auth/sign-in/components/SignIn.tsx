@@ -1,4 +1,4 @@
-import IconifyIcon from '@/components/wrapper extraction/IconifyIcon'
+import IconifyIcon from '@/components/wrapper/IconifyIcon'
 import TextFormInput from '@/components/from/TextFormInput'
 import PasswordFormInput from '@/components/from/PasswordFormInput'
 import { useEffect } from 'react'
