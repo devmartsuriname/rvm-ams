@@ -1,6 +1,6 @@
 # AMS-RVM Backend Status
 
-**Last Updated:** 2026-03-21 (Phase 25 Complete — Production Readiness & Go-Live)
+**Last Updated:** 2026-03-22 (Phase 26 Complete — Remediation & Baseline Lock)
 
 ---
 
@@ -45,6 +45,7 @@
 | 23B | Critical Remediation — Search enum ilike fix + RLS RESTRICTIVE→PERMISSIVE migration (17 policies across 9 tables) + document upload guarded INSERT pattern. All validated. | CLOSED |
 | 24 | Security Review & Hardening Audit — RLS audit (14 tables PASS), storage audit, auth/session review, governance trigger audit (9 triggers), super admin review, dependency audit (~17 unused), data exposure check. See [Security Review Report](Phase-24-Security-Review-Report.md) | CLOSED |
 | 25 | Production Readiness & Go-Live — Environment audit, domain validation (rvmflow.com), role-based access testing, document flow validation, super admin deactivation, performance baseline. 7/7 manual validation PASS. See [Production Readiness](Phase-25-Production-Readiness.md) | CLOSED |
+| 26 | Remediation & Baseline Lock — Env var migration (fail-fast), lovable-tagger removal, document storage cleanup on failure, dossier orphan rollback, `.env.example`. See [Claude Audit Report](Phase-25-Claude-Audit-Report.md), [Remediation Report](Phase-26-Remediation-Report.md) | CLOSED |
 
 ## Database Architecture
 
@@ -207,3 +208,33 @@ All blocked mutations surface user-friendly messages via `getErrorMessage()` in 
 - No trigger modifications
 - Storage bucket RLS policies align with document table SELECT/INSERT roles
 - UI role-gating (`canUploadDocument`) mirrors storage INSERT permissions
+
+## Phase 26 — Remediation & Baseline Lock (CLOSED)
+
+### Changes Applied
+
+| Change | File | Description |
+|--------|------|-------------|
+| Env var migration | `src/integrations/supabase/client.ts` | Supabase URL/key from `import.meta.env` with fail-fast |
+| Tagger removal | `vite.config.ts`, `package.json` | `lovable-tagger` fully removed |
+| Storage cleanup | `src/services/documentService.ts` | Failed version insert triggers storage file removal |
+| Orphan rollback | `src/services/dossierService.ts` | Failed `rvm_item` insert triggers dossier delete (best-effort) |
+| Env template | `.env.example` | Variable placeholders for deployment |
+
+### Governance Artifacts
+
+- `docs/Phase-25-Claude-Audit-Report.md` — Full codebase audit by Claude Code
+- `docs/Phase-26-Remediation-Report.md` — Remediation execution report
+- `Project Restore Points/RP-P26-remediation-pre.md`
+- `Project Restore Points/RP-P26-remediation-post.md`
+
+---
+
+## Phase 26 Baseline
+
+**This version is the official stable baseline for the AMS-RVM system.**
+
+Future changes must not break:
+- **Environment configuration** — Supabase credentials must remain environment-variable-driven with fail-fast validation. No hardcoded URLs or keys.
+- **Rollback logic** — Document storage cleanup and dossier orphan rollback patterns must be preserved in all service layer mutations.
+- **Audit chain** — The append-only audit trail, immutability triggers, illegal attempt logging, and governance enforcement triggers must remain intact and unmodified.

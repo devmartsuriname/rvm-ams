@@ -1,6 +1,6 @@
 # AMS-RVM System Architecture
 
-**Last Updated:** 2026-03-21 (Phase 25 Complete — Production Readiness & Go-Live)
+**Last Updated:** 2026-03-22 (Phase 26 Complete — Remediation & Baseline Lock)
 
 ---
 
@@ -51,7 +51,7 @@ Database:
 
 ## Phase Completion Status
 
-All 9 phases + Phase 9B + Phase 9C CLOSED as of 2026-02-26. Phase 10A–10D CLOSED. Phase 11 (Illegal Attempt Logging Hardening) CLOSED. Phase 12 (DMS-Light UI) CLOSED. Phase 13 (Agenda Item Management UI) CLOSED. Phase 16 (RETURN NULL Pattern Unification + UX Exception Handling) CLOSED. Phase 14 (Decision List & Report Generation) CLOSED. Phase 15 (Role-Specific Dashboards) CLOSED. Phase 17 (Advanced Search & Filtering) CLOSED including 17R remediation. Phase 18 (Final System Completion QA) CLOSED — validation-only phase, no functional code changes. Phase 19 (Code Health) CLOSED — 19C: Auth logout UX fix + duplicate component removal; 19A: 18 orphan files deleted; 19B: dead exports removed from 5 files. **Phase 20 (Test Data Seeder) CLOSED** — Supabase Edge Function `seed-rvm-workflow-data` deployed. Creates 5 auth users, 6 dossiers, 5 meetings, 23 agenda items, 12 decisions, 10 tasks. Idempotent with `?force=true` re-seed support. See `docs/Phase-20-Seeder-Guide.md` (execution guide) and `docs/Phase-20-Seed-Data-Report.md` (data inventory).
+All 9 phases + Phase 9B + Phase 9C CLOSED as of 2026-02-26. Phase 10A–10D CLOSED. Phase 11 (Illegal Attempt Logging Hardening) CLOSED. Phase 12 (DMS-Light UI) CLOSED. Phase 13 (Agenda Item Management UI) CLOSED. Phase 16 (RETURN NULL Pattern Unification + UX Exception Handling) CLOSED. Phase 14 (Decision List & Report Generation) CLOSED. Phase 15 (Role-Specific Dashboards) CLOSED. Phase 17 (Advanced Search & Filtering) CLOSED including 17R remediation. Phase 18 (Final System Completion QA) CLOSED — validation-only phase, no functional code changes. Phase 19 (Code Health) CLOSED — 19C: Auth logout UX fix + duplicate component removal; 19A: 18 orphan files deleted; 19B: dead exports removed from 5 files. **Phase 20 (Test Data Seeder) CLOSED** — Supabase Edge Function `seed-rvm-workflow-data` deployed. Creates 5 auth users, 6 dossiers, 5 meetings, 23 agenda items, 12 decisions, 10 tasks. Idempotent with `?force=true` re-seed support. See `docs/Phase-20-Seeder-Guide.md` (execution guide) and `docs/Phase-20-Seed-Data-Report.md` (data inventory). **Phase 26 (Remediation & Baseline Lock) CLOSED** — Supabase client migrated to environment variables (`VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY`) with fail-fast validation. `lovable-tagger` removed from dependencies and Vite config. Document service hardened with storage cleanup on failed version inserts. Dossier service hardened with orphan rollback on failed `rvm_item` creation. `.env.example` added. See `docs/Phase-25-Claude-Audit-Report.md` and `docs/Phase-26-Remediation-Report.md`.
 
 ## Implemented Modules
 
@@ -156,3 +156,25 @@ See [Phase 24 Security Review Report](Phase-24-Security-Review-Report.md) for fu
 Environment configuration audited, domain (rvmflow.com) validated with HTTPS, 5 routes verified via direct URL, role-based access tested for 3 roles, document upload/download confirmed on production domain, governance block validated, super admin deactivated, performance baseline documented. 7/7 manual validation tests PASS.
 
 See [Phase 25 Production Readiness](Phase-25-Production-Readiness.md) for full details.
+
+### Phase 26 — Remediation & Baseline Lock
+
+- Environment variable migration: Supabase URL and anon key read from `import.meta.env` with fail-fast on missing values
+- `lovable-tagger` fully removed (devDependency + Vite plugin)
+- Document service: storage file cleanup on failed version record insert (both create and upload-new-version paths)
+- Dossier service: orphan dossier rollback on failed `rvm_item` insert (best-effort, RLS-aware)
+- `.env.example` added with required variable placeholders
+- Governance artifacts: Phase 25 Claude Audit Report, Phase 26 Remediation Report, restore points RP-P26-pre/post
+
+See [Phase 25 Claude Audit Report](Phase-25-Claude-Audit-Report.md) and [Phase 26 Remediation Report](Phase-26-Remediation-Report.md).
+
+---
+
+## Phase 26 Baseline
+
+**This version is the official stable baseline for the AMS-RVM system.**
+
+Future changes must not break:
+- **Environment configuration** — Supabase credentials must remain environment-variable-driven with fail-fast validation. No hardcoded URLs or keys.
+- **Rollback logic** — Document storage cleanup and dossier orphan rollback patterns must be preserved in all service layer mutations.
+- **Audit chain** — The append-only audit trail, immutability triggers, illegal attempt logging, and governance enforcement triggers must remain intact and unmodified.
