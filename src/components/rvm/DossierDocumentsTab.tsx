@@ -10,6 +10,7 @@ import { documentService } from '@/services/documentService'
 import { toast } from 'react-toastify'
 import { getErrorMessage } from '@/utils/rls-error'
 import type { DocumentWithVersion } from '@/services/documentService'
+import { formatDate } from '@/utils/date'
 
 const DOC_TYPE_LABELS: Record<string, string> = {
   proposal: 'Proposal',
