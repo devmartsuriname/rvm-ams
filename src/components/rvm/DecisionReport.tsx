@@ -1,7 +1,7 @@
 import React, { forwardRef } from 'react'
 import { Table, Badge } from 'react-bootstrap'
 import { DecisionLifecycleBadge } from '@/components/rvm/StatusBadges'
-import { formatDateLong, formatDate as formatShortDateFn } from '@/utils/date'
+import { formatDateLong, formatDate } from '@/utils/date'
 
 export interface DecisionReportData {
   id: string
@@ -31,7 +31,7 @@ interface DecisionReportProps {
   title?: string
 }
 
-const formatShortDate = formatShortDateFn
+
 
 const getMeetingTypeLabel = (type: string | null | undefined) => {
   switch (type) {
@@ -119,8 +119,8 @@ const DecisionReport = forwardRef<HTMLDivElement, DecisionReportProps>(
                   <td>
                     <DecisionLifecycleBadge status={d.decision_status} isFinal={d.is_final} />
                   </td>
-                  <td className="small">{formatShortDate(d.chair_approved_at)}</td>
-                  <td className="small">{formatShortDate(d.created_at)}</td>
+                  <td className="small">{formatDate(d.chair_approved_at)}</td>
+                  <td className="small">{formatDate(d.created_at)}</td>
                 </tr>
               )
             })}
