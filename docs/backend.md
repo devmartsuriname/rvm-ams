@@ -45,6 +45,7 @@
 | 23B | Critical Remediation — Search enum ilike fix + RLS RESTRICTIVE→PERMISSIVE migration (17 policies across 9 tables) + document upload guarded INSERT pattern. All validated. | CLOSED |
 | 24 | Security Review & Hardening Audit — RLS audit (14 tables PASS), storage audit, auth/session review, governance trigger audit (9 triggers), super admin review, dependency audit (~17 unused), data exposure check. See [Security Review Report](Phase-24-Security-Review-Report.md) | CLOSED |
 | 25 | Production Readiness & Go-Live — Environment audit, domain validation (rvmflow.com), role-based access testing, document flow validation, super admin deactivation, performance baseline. 7/7 manual validation PASS. See [Production Readiness](Phase-25-Production-Readiness.md) | CLOSED |
+| 26 | Remediation & Baseline Lock — Env var migration (fail-fast), lovable-tagger removal, document storage cleanup on failure, dossier orphan rollback, `.env.example`. See [Claude Audit Report](Phase-25-Claude-Audit-Report.md), [Remediation Report](Phase-26-Remediation-Report.md) | CLOSED |
 
 ## Database Architecture
 
