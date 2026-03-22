@@ -319,7 +319,7 @@ const MeetingDetailPage = () => {
                             )}
                           </td>
                           <td className="small text-muted">
-                            {item.created_at ? formatDate(item.created_at) : '—'}
+                            {item.created_at ? formatDateShort(item.created_at) : '—'}
                           </td>
                           <td>
                             <div className="d-flex gap-1 flex-wrap">
