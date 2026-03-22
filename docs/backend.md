@@ -1,6 +1,6 @@
 # AMS-RVM Backend Status
 
-**Last Updated:** 2026-03-21 (Phase 27 Complete — VPS Migration Blueprint)
+**Last Updated:** 2026-03-21 (Phase 25 Complete — Production Readiness & Go-Live)
 
 ---
 
@@ -45,10 +45,6 @@
 | 23B | Critical Remediation — Search enum ilike fix + RLS RESTRICTIVE→PERMISSIVE migration (17 policies across 9 tables) + document upload guarded INSERT pattern. All validated. | CLOSED |
 | 24 | Security Review & Hardening Audit — RLS audit (14 tables PASS), storage audit, auth/session review, governance trigger audit (9 triggers), super admin review, dependency audit (~17 unused), data exposure check. See [Security Review Report](Phase-24-Security-Review-Report.md) | CLOSED |
 | 25 | Production Readiness & Go-Live — Environment audit, domain validation (rvmflow.com), role-based access testing, document flow validation, super admin deactivation, performance baseline. 7/7 manual validation PASS. See [Production Readiness](Phase-25-Production-Readiness.md) | CLOSED |
-| 26A | Critical remediation — ENV vars, lovable-tagger removal, document upload-first atomicity, dossier orphan error surfacing. See [26A Remediation Report](Phase-26A-Remediation-Report.md) | CLOSED |
-| 26B | Pre-VPS hardening — axios-mock-adapter moved to devDependencies; chair_approved_at strategy analysis. See [26B Hardening Report](Phase-26B-Hardening-Report.md) | CLOSED |
-| 26C | Chair approval server-side timestamp — DB trigger `set_chair_approval_timestamp` BEFORE UPDATE on rvm_decision; client-side assignment removed from decisionService. See [26C Report](Phase-26C-Chair-Timestamp-Hardening-Report.md) | CLOSED |
-| 27 | VPS Migration Preparation — Hostinger VPS blueprint: architecture decision, spec recommendation, nginx SPA config, DNS/SSL plan, 16-step migration sequence, rollback plan, pre-migration checklist. See [Phase-27 Blueprint](Phase-27-Hostinger-VPS-Migration-Preparation.md) | CLOSED (documentation) |
 
 ## Database Architecture
 

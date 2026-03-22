@@ -125,15 +125,14 @@ export const dossierService = {
       })
 
     if (itemError) {
-      // rvm_item creation failed. The rvm_dossier record was already committed and cannot be
-      // rolled back from the client (no DELETE RLS policy). Surface the orphaned dossier ID
-      // so an administrator can identify and clean up the incomplete record.
-      console.error('[DossierService] rvm_item creation failed. Orphaned dossier ID:', dossier.id, itemError)
-      throw new Error(
-        `Dossier was created but the supplementary record failed to save. ` +
-        `Orphaned dossier ID: ${dossier.id}. ` +
-        `Please contact your administrator to resolve this incomplete record.`
-      )
+      // Rollback: attempt to delete orphan dossier (best-effort, RLS may block)
+      console.error('[DossierService] Failed to create item, attempting orphan cleanup:', itemError)
+      try {
+        await supabase.from('rvm_dossier').delete().eq('id', dossier.id)
+      } catch (deleteError) {
+        console.warn('[DossierService] Orphan dossier cleanup failed (RLS may block delete):', deleteError)
+      }
+      throw itemError
     }
 
     return dossier

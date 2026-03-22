@@ -41,20 +41,7 @@ export const documentService = {
   },
 
   /**
-   * Create a document record, upload file, create version, link current_version_id.
-   *
-   * Operation order (Phase 26A — upload-first for safer atomicity):
-   *   1. Pre-generate document UUID client-side
-   *   2. Upload file to final storage path (uses pre-known UUID — no temp path needed)
-   *      → If this fails: nothing written to DB. Clean failure.
-   *   3. Insert rvm_document record with pre-generated UUID
-   *      → If this fails: remove uploaded storage file. No DB orphan.
-   *   4. Insert rvm_document_version
-   *      → If this fails: remove uploaded storage file. No DB orphan.
-   *   5. Link current_version_id on rvm_document
-   *
-   * This order ensures the most common failure case (storage/network error) leaves no orphans.
-   * Storage orphans (step 3 or 4 DB failure) are cleaned up automatically.
+   * Create a document record, upload file, create version, link current_version_id
    */
   async createDocument(params: {
     dossierId: string
@@ -68,26 +55,10 @@ export const documentService = {
   }) {
     const { dossierId, title, docType, confidentialityLevel, file, decisionId, agendaItemId, createdBy } = params
 
-    // 1. Pre-generate document UUID so we can build the final storage path before the DB insert
-    const docId = crypto.randomUUID()
-    const storagePath = `${dossierId}/${docId}/v1/${file.name}`
-
-    // 2. Upload file to storage (upload-first — no DB write has happened yet)
-    const { error: uploadError } = await supabase.storage
-      .from('rvm-documents')
-      .upload(storagePath, file, { upsert: false })
-
-    if (uploadError) {
-      // Upload failed — nothing written to DB. Clean failure.
-      console.error('[DocumentService] Upload failed, no DB records created:', uploadError)
-      throw uploadError
-    }
-
-    // 3. Insert document record with pre-generated UUID
+    // 1. Insert document record
     const { data: docs, error: docError } = await supabase
       .from('rvm_document')
       .insert({
-        id: docId,
         dossier_id: dossierId,
         title,
         doc_type: docType,
@@ -98,17 +69,25 @@ export const documentService = {
       })
       .select()
 
-    if (docError || !docs || docs.length === 0) {
-      // DB insert failed — clean up the uploaded storage file
-      console.error('[DocumentService] Document insert failed, cleaning up storage file:', docError)
-      await supabase.storage.from('rvm-documents').remove([storagePath])
-      if (docError) throw docError
+    if (docError) throw docError
+    if (!docs || docs.length === 0) {
       const reason = await fetchViolationReason('rvm_document', dossierId)
       throw new Error(reason ?? 'Document creation blocked by governance enforcement. The dossier may be locked.')
     }
     const doc = docs[0]
 
-    // 4. Create version record
+    // 2. Upload file to storage
+    const storagePath = `${dossierId}/${doc.id}/v1/${file.name}`
+    const { error: uploadError } = await supabase.storage
+      .from('rvm-documents')
+      .upload(storagePath, file, { upsert: false })
+
+    if (uploadError) {
+      console.error('[DocumentService] Upload failed, document orphaned:', uploadError)
+      throw uploadError
+    }
+
+    // 3. Create version record
     const { data: versions, error: versionError } = await supabase
       .from('rvm_document_version')
       .insert({
@@ -123,8 +102,8 @@ export const documentService = {
       .select()
 
     if (versionError || !versions || versions.length === 0) {
-      // Version insert failed — clean up the storage file
-      console.error('[DocumentService] Version insert failed, cleaning up storage file:', versionError)
+      // Storage cleanup: remove orphaned file
+      console.error('[DocumentService] Version creation failed, cleaning up storage:', versionError)
       await supabase.storage.from('rvm-documents').remove([storagePath])
       if (versionError) throw versionError
       const reason = await fetchViolationReason('rvm_document_version', doc.id)
@@ -132,7 +111,7 @@ export const documentService = {
     }
     const version = versions[0]
 
-    // 5. Link current_version_id (guarded)
+    // 4. Link current_version_id (guarded)
     const versionLinkResult = await supabase
       .from('rvm_document')
       .update({ current_version_id: version.id })
@@ -188,8 +167,11 @@ export const documentService = {
       })
       .select()
 
-    if (versionError) throw versionError
-    if (!versionRows || versionRows.length === 0) {
+    if (versionError || !versionRows || versionRows.length === 0) {
+      // Storage cleanup: remove orphaned file
+      console.error('[DocumentService] Version creation failed, cleaning up storage:', versionError)
+      await supabase.storage.from('rvm-documents').remove([storagePath])
+      if (versionError) throw versionError
       const reason = await fetchViolationReason('rvm_document_version', documentId)
       throw new Error(reason ?? 'Version creation blocked by governance enforcement.')
     }

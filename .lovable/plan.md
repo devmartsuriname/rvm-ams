@@ -1,94 +1,65 @@
-# Plan: Re-apply Phase 26 Git Changes in Lovable
+# Phase 25 — Formal Validation Table Addition
 
-Strict parity sync of 5 code changes. Documentation and restore points are **blocked** pending exact Git content.
+## What
 
----
+Add a structured "Phase 25 — Manual Validation Results" summary table to the existing `docs/Phase-25-Production-Readiness.md`, consolidating all user-verified test results into the governance-required format. Also update `docs/backend.md` and `docs/architecture.md` with validation references.
 
-## Changes to Apply
+## Evidence Source
 
-### 1. Supabase client — env var migration + fail-fast
+All results are already documented throughout the Phase 25 report with explicit PASS status, confirmed by Devmart on 2026-03-21. The new table consolidates these into the required format.
 
-**File:** `src/integrations/supabase/client.ts`
-
-- Replace hardcoded URL and key with `import.meta.env.VITE_SUPABASE_URL` and `import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY`
-- Add fail-fast validation: throw if either variable is missing
-- **Deviation risk:** File is Lovable-managed ("automatically generated"). May be overwritten on Supabase sync. Will be reported.
-
-### 2. Remove lovable-tagger
-
-**File:** `vite.config.ts` — Remove `import { componentTagger } from "lovable-tagger"` and its usage in plugins array
-**File:** `package.json` line 105 — Remove `"lovable-tagger": "^1.1.11"` from devDependencies
-
-### 3. Add `.env.example`
-
-**File:** `.env.example` (new) — Placeholder variable names only:
-
-```
-VITE_SUPABASE_URL=
-VITE_SUPABASE_PUBLISHABLE_KEY=
-VITE_SUPABASE_PROJECT_ID=
-```
-
-### 4. Document service — storage cleanup on failure
-
-**File:** `src/services/documentService.ts`
-
-- **createDocument** (around line 104): If version insert fails, call `supabase.storage.from('rvm-documents').remove([storagePath])` before throwing
-- **uploadNewVersion** (around line 167): Same pattern — clean up uploaded file if version record creation fails
-
-### 5. Dossier service — orphan rollback
-
-**File:** `src/services/dossierService.ts`
-
-- **createDossier** (line 116–120): When `rvm_item` insert fails, attempt `supabase.from('rvm_dossier').delete().eq('id', dossier.id)` before throwing. Best-effort with error logging (RLS may block delete).
-
----
-
-## Blocked Items — STOP AND REPORT
-
-### 6. Phase 25/26 documentation files
-
-- `docs/Phase-25-Claude-Audit-Report.md`
-- `docs/Phase-26-Remediation-Report.md`
-
-**Status: BLOCKED.** Exact Git content is not available in the Lovable environment. Per governance correction, no stubs or inferred versions will be created.
-
-### 7. Phase 26 restore points
-
-- `Project Restore Points/RP-P26-remediation-pre.md`
-- `Project Restore Points/RP-P26-remediation-post.md`
-
-**Status: BLOCKED.** Same reason. Exact Git content required.
-
----
-
-## Summary
+## Validation Table (to be inserted before "Readiness Verdict" section)
 
 
-| #   | File                                  | Action                        | Status      |
-| --- | ------------------------------------- | ----------------------------- | ----------- |
-| 1   | `src/integrations/supabase/client.ts` | Env var migration + fail-fast | Ready       |
-| 2a  | `vite.config.ts`                      | Remove tagger import/usage    | Ready       |
-| 2b  | `package.json`                        | Remove tagger dependency      | Ready       |
-| 3   | `.env.example`                        | Create with placeholders      | Ready       |
-| 4   | `src/services/documentService.ts`     | Storage cleanup on failure    | Ready       |
-| 5   | `src/services/dossierService.ts`      | Orphan dossier rollback       | Ready       |
-| 6   | `docs/Phase-25-*`, `docs/Phase-26-*`  | Exact Git copy                | **BLOCKED** |
-| 7   | `Project Restore Points/RP-P26-*`     | Exact Git copy                | **BLOCKED** |
+| Test Area         | Description                                                                          | Result | Evidence                                                            |
+| ----------------- | ------------------------------------------------------------------------------------ | ------ | ------------------------------------------------------------------- |
+| Domain            | rvmflow.com loads with HTTPS                                                         | PASS   | Step 2 — user-verified 2026-03-21                                   |
+| Routing           | Direct URLs work (/auth/sign-in, /dashboards, /rvm/dossiers, /rvm/meetings, /search) | PASS   | Step 2 — 5 routes + SPA refresh verified                            |
+| Role Access       | secretary, chair, observer permissions validated                                     | PASS   | Step 3 — 3 roles verified with menu + write + URL escalation checks |
+| Document Upload   | Upload works on draft dossier                                                        | PASS   | Step 4 — success toast confirmed, Phase 23B evidence                |
+| Document Download | Signed URL download works                                                            | PASS   | Step 4 — blob workaround in preview, direct URL on production       |
+| Governance Block  | Locked dossier prevents upload with correct message                                  | PASS   | Step 4 — user-friendly error toast on decided dossier               |
+| Performance       | Dashboard ~1s, Search ~1s, Upload ~2s                                                | PASS   | Step 8 — all within target thresholds                               |
 
 
-**Total: 6 files modified/created, 4 files blocked pending exact Git content**  
+## Operations
+
+
+| #   | Op   | File                                                                                              |
+| --- | ---- | ------------------------------------------------------------------------------------------------- |
+| 1   | Edit | `docs/Phase-25-Production-Readiness.md` — insert formal validation table before Readiness Verdict |
+| 2   | Edit | `docs/backend.md` — add Phase 25 validation reference                                             |
+| 3   | Edit | `docs/architecture.md` — add Phase 25 validation reference                                        |
+
+
+**Total: 3 ops**  
   
-NOTE — PHASE COMPLETION CONDITION
+NOTE — Audit Evidence Hardening (Non-Blocking)
 
-Items 6 and 7 (documentation and restore points) remain mandatory for Phase 26 completion.
+1. Evidence Traceability
 
-Phase 26 is NOT considered fully complete until:
+Future phases must include:
 
-- Exact Git versions of these files are applied in Lovable
+- Screenshot reference OR
 
-- Audit trail is fully restored
+- Console/network log OR
 
-Current execution is limited to code parity only.
+- DB record ID
 
-**Required user action for items 6–7:** Provide exact file content from Git, or confirm these should be skipped for now.
+2. Negative Case Evidence
+
+For governance-related checks:
+
+- Capture at least one failed attempt log (e.g. blocked upload)
+
+- Include error message payload or log reference
+
+3. Performance Measurement Method
+
+Clarify how timings were measured:
+
+- Manual estimation vs DevTools vs logs
+
+4. This does NOT block Phase 25 completion,
+
+but is required for Phase 26+ audit-grade readiness.
