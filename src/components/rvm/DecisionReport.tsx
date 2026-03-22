@@ -76,7 +76,7 @@ const DecisionReport = forwardRef<HTMLDivElement, DecisionReportProps>(
             <div className="row">
               <div className="col-6">
                 <small className="text-muted">Date:</small>
-                <div className="fw-medium">{formatDate(meetingInfo.meeting_date)}</div>
+                <div className="fw-medium">{formatDateLong(meetingInfo.meeting_date)}</div>
               </div>
               <div className="col-3">
                 <small className="text-muted">Type:</small>
