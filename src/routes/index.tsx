@@ -13,6 +13,7 @@ const TaskList = lazy(() => import('@/app/(admin)/rvm/tasks/page'))
 const DecisionList = lazy(() => import('@/app/(admin)/rvm/decisions/page'))
 const AuditLog = lazy(() => import('@/app/(admin)/rvm/audit/page'))
 const SearchPage = lazy(() => import('@/app/(admin)/search/page'))
+const LogoPreview = lazy(() => import('@/app/(admin)/logo-preview/page'))
 
 // Auth Routes
 const AuthSignIn = lazy(() => import('@/app/(other)/auth/sign-in/page'))
@@ -81,6 +82,11 @@ const rvmRoutes: RoutesProps[] = [
     path: '/search',
     name: 'Search',
     element: <SearchPage />,
+  },
+  {
+    path: '/logo-preview',
+    name: 'Logo Preview',
+    element: <LogoPreview />,
   },
 ]
 
