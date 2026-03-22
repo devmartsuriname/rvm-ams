@@ -156,3 +156,25 @@ See [Phase 24 Security Review Report](Phase-24-Security-Review-Report.md) for fu
 Environment configuration audited, domain (rvmflow.com) validated with HTTPS, 5 routes verified via direct URL, role-based access tested for 3 roles, document upload/download confirmed on production domain, governance block validated, super admin deactivated, performance baseline documented. 7/7 manual validation tests PASS.
 
 See [Phase 25 Production Readiness](Phase-25-Production-Readiness.md) for full details.
+
+### Phase 26 — Remediation & Baseline Lock
+
+- Environment variable migration: Supabase URL and anon key read from `import.meta.env` with fail-fast on missing values
+- `lovable-tagger` fully removed (devDependency + Vite plugin)
+- Document service: storage file cleanup on failed version record insert (both create and upload-new-version paths)
+- Dossier service: orphan dossier rollback on failed `rvm_item` insert (best-effort, RLS-aware)
+- `.env.example` added with required variable placeholders
+- Governance artifacts: Phase 25 Claude Audit Report, Phase 26 Remediation Report, restore points RP-P26-pre/post
+
+See [Phase 25 Claude Audit Report](Phase-25-Claude-Audit-Report.md) and [Phase 26 Remediation Report](Phase-26-Remediation-Report.md).
+
+---
+
+## Phase 26 Baseline
+
+**This version is the official stable baseline for the AMS-RVM system.**
+
+Future changes must not break:
+- **Environment configuration** — Supabase credentials must remain environment-variable-driven with fail-fast validation. No hardcoded URLs or keys.
+- **Rollback logic** — Document storage cleanup and dossier orphan rollback patterns must be preserved in all service layer mutations.
+- **Audit chain** — The append-only audit trail, immutability triggers, illegal attempt logging, and governance enforcement triggers must remain intact and unmodified.
