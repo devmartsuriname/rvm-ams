@@ -1,126 +1,102 @@
-# Plan: Generate RVM Flow Logo Variations (Darkone-Compliant)
+# Plan: Apply Variation C Logo System-Wide
 
-## Analysis Summary
+## Structure Confirmed
 
-### Darkone Design Tokens (from codebase)
+Two logo locations found:
 
-- **Font**: "Play", sans-serif (Google Fonts, weights 400 & 700)
-- **Primary color**: `#7e67fe` (purple)
-- **Gray-500 (muted)**: `#8486a7`
-- **Gray-900 (dark text)**: `#21252e`
-- **White**: `#ffffff`
-- **Logo-lg height**: 26px CSS
-- **Logo-sm height**: 24px CSS
-- **Logo-lg img dimensions**: 114×28px (from LogoBox.tsx)
-- **Logo-sm img dimensions**: 24×24px (from LogoBox.tsx)
-- **Icon libraries**: Iconify — `solar:*`, `mingcute:*`, `bx:*`
+1. `**src/components/wrapper/LogoBox.tsx**` — Sidebar logo (used by VerticalNavigationBar)
+  - `.logo-dark` / `.logo-light` links with CSS switching
+  - `logo-sm` (24×24, collapsed sidebar) + `logo-lg` (114×28, expanded sidebar)
+2. `**src/app/(other)/auth/sign-in/components/SignIn.tsx**` — Login page logo
+  - Same `.logo-dark` / `.logo-light` CSS pattern
+  - Only uses expanded size (height 28–32)
 
-### Current LogoBox Structure
+No other logo locations exist. AuthLayout has no logo.
 
-- `.logo-box` contains `.logo-dark` and `.logo-light` links
-- Each has a `logo-sm` (collapsed sidebar, 24×24) and `logo-lg` (expanded sidebar, 114×28)
-- Dark/light variants swap via CSS display rules
+## Changes
 
----
+### 1. `src/components/wrapper/LogoBox.tsx`
 
-## 3 Logo Variations
+Replace PNG `<img>` tags with inline Iconify-based logo components. Preserve the existing `.logo-box` > `.logo-dark` / `.logo-light` > `.logo-sm` / `.logo-lg` class structure exactly.
 
-All variations share:
+- `logo-sm`: 24×24 div with `solar:widget-line-duotone` icon in `#7e67fe`
+- `logo-lg`: 114×28 div with icon + "RVM Flow" (Play 700, 11px) + "Management System" (Play 400, 6.5px)
+- `.logo-dark` variant: text `#21252e`, muted `#8486a7`
+- `.logo-light` variant: text `#ffffff`, muted `#8486a7`
+- Remove PNG imports (no longer needed)
 
-- Layout: icon LEFT, "RVM Flow" title RIGHT, "Management System" tagline below title
-- Font: Play (700 for title, 400 for tagline)
-- Dimensions: logo-lg = 114×28px, logo-sm = 24×24px (icon only)
-- Dark mode: light text on dark bg; Light mode: dark text on light bg
+### 2. `src/app/(other)/auth/sign-in/components/SignIn.tsx`
 
-### Variation A — "Flow Node" (mingcute:flow-line)
+Replace PNG `<img>` tags with the same Iconify-based logo component (expanded size only).
 
-- **Icon**: `mingcute:flow-line` — represents workflow/flow
-- **Icon color**: Primary purple `#7e67fe`
-- **Title color**: Dark `#21252e` (light mode) / White (dark mode)
-- **Tagline color**: Muted `#8486a7`
-- **Style**: Clean, minimal — icon and text baseline-aligned
+- `.logo-dark`: text `#21252e`
+- `.logo-light`: text `#ffffff`
+- Remove PNG imports
 
-### Variation B — "Shield Governance" (bx:shield-quarter)
+### 3. No other files touched
 
-- **Icon**: `bx:shield-quarter` — represents governance/authority (already used for Audit)
-- **Icon color**: Primary purple `#7e67fe`
-- **Title color**: Dark `#21252e` / White
-- **Tagline color**: Muted `#8486a7`
-- **Style**: Authoritative, institutional feel
+- No structure changes
+- No wrapper additions
+- No CSS modifications
+- Preview page (`logo-preview/page.tsx`) left as-is (excluded per instructions)
 
-### Variation C — "Grid System" (solar:widget-line-duotone)
+  
+**NOTE — Visual Alignment Validation (MANDATORY)**
 
-- **Icon**: `solar:widget-line-duotone` — represents system/dashboard
-- **Icon color**: Primary purple `#7e67fe`
-- **Title color**: Dark `#21252e` / White
-- **Tagline color**: Muted `#8486a7`
-- **Style**: Modern, system-oriented
+After replacing PNG with Iconify-based logo:
 
----
+1. Verify visual alignment EXACTLY matches previous PNG:
 
-**NOTE — Integration Constraint (MANDATORY)**
+   - Icon and text baseline alignment
 
-Before rendering the logo variations:
+   - Vertical centering within logo-lg (114x28)
 
-1. Inspect existing LogoBox.tsx component
+   - Perfect centering in logo-sm (24x24)
 
-2. Confirm:
+2. Spacing rule:
 
-   - Alignment behavior (flex, baseline, spacing)
+   - Icon → Title spacing must visually match previous implementation
 
-   - Collapsed vs expanded sidebar rendering
+   - If mismatch detected → adjust using EXISTING utility classes ONLY (no new CSS)
 
-   - logo-sm vs logo-lg switching logic
+3. Typography validation:
 
-   - dark/light variant handling
+   - "RVM Flow" must render as Play 700
 
-3. Ensure ALL variations:
+   - "Management System" as Play 400
 
-   - Fit EXACTLY inside LogoBox without layout shift
+   - No fallback font visible
 
-   - Do NOT introduce new wrappers or structure changes
+4. Pixel check (critical):
 
-   - Respect existing classNames and spacing
+   - Compare before/after visually
 
-4. Validate preview in:
+   - No shift allowed in:
 
-   - Expanded sidebar
+     - Sidebar expanded
 
-   - Collapsed sidebar
+     - Sidebar collapsed
 
-   - Dark mode
+     - Login page
 
-   - Light mode
+If any visual deviation occurs:
 
-If any variation breaks layout:
+→ STOP and report
 
-→ discard it
-
-This is a UI-bound component, not a standalone design.  
+Goal: indistinguishable from original layout, only icon changed.  
   
   
-**Implementation Approach**
+**Validation**
 
-1. Create a preview page component (temporary) that renders all 3 variations side-by-side
-2. Each variation rendered as an inline React component using:
-  - `IconifyIcon` wrapper (authorized icon component)
-  - Play font (already loaded globally)
-  - Darkone color tokens as inline styles
-  - Exact 114×28 bounding box for logo-lg, 24×24 for logo-sm
-3. Show both light and dark mode variants for each
-4. No changes to existing LogoBox or any production files
 
-## Validation Checklist
+| Check                     | Method                                           |
+| ------------------------- | ------------------------------------------------ |
+| Sidebar expanded (114×28) | Preserves `.logo-lg` class                       |
+| Sidebar collapsed (24×24) | Preserves `.logo-sm` class                       |
+| Dark/light switching      | Preserves `.logo-dark` / `.logo-light` CSS rules |
+| Login page                | Same component pattern                           |
+| No layout shift           | Same dimensions, no new wrappers                 |
+| Darkone compliance        | Only authorized icon, colors, font               |
 
-- Icons: All from authorized Iconify sets (mingcute, bx, solar)
-- Colors: Only Darkone tokens (#7e67fe, #21252e, #8486a7, #ffffff)
-- Font: Play (already loaded)
-- Dimensions: 114×28px (lg), 24×24px (sm) — matches LogoBox exactly
-- Dark/light: Both variants provided
-- No custom styles outside system tokens
 
-## Output
-
-- Temporary preview component at a test route
-- 3 variations displayed for review
-- **No production files modified**
+**Total: 2 files modified, 0 files created, 0 CSS changes**
