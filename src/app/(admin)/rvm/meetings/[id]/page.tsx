@@ -20,6 +20,7 @@ import DecisionReport from '@/components/rvm/DecisionReport'
 import IconifyIcon from '@/components/wrapper/IconifyIcon'
 import { toast } from 'react-toastify'
 import type { Enums } from '@/integrations/supabase/types'
+import { formatDateLong, formatDate as formatDateShort } from '@/utils/date'
 
 const MeetingDetailPage = () => {
   const { id } = useParams<{ id: string }>()
@@ -38,15 +39,7 @@ const MeetingDetailPage = () => {
   const [manageDecisionAgendaId, setManageDecisionAgendaId] = useState<string | null>(null)
   const [manageDecisionAgendaNum, setManageDecisionAgendaNum] = useState<number>(0)
 
-  const formatDate = (dateString: string | null | undefined) => {
-    if (!dateString) return '-'
-    return new Date(dateString).toLocaleDateString('nl-NL', {
-      weekday: 'long',
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-    })
-  }
+  const formatDate = formatDateLong
 
   const getMeetingTypeLabel = (type: string | null | undefined) => {
     switch (type) {
@@ -326,7 +319,7 @@ const MeetingDetailPage = () => {
                             )}
                           </td>
                           <td className="small text-muted">
-                            {item.created_at ? new Date(item.created_at).toLocaleDateString('nl-NL') : '—'}
+                            {item.created_at ? formatDateShort(item.created_at) : '—'}
                           </td>
                           <td>
                             <div className="d-flex gap-1 flex-wrap">
@@ -415,7 +408,7 @@ const MeetingDetailPage = () => {
                         </td>
                         <td className="small text-muted">
                           {decision.chair_approved_at
-                            ? new Date(decision.chair_approved_at).toLocaleDateString('nl-NL')
+                            ? formatDateShort(decision.chair_approved_at)
                             : '—'}
                         </td>
                         <td>

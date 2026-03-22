@@ -9,6 +9,7 @@ import { useState } from 'react'
 import type { Enums } from '@/integrations/supabase/types'
 import { useUserRoles } from '@/hooks/useUserRoles'
 import CreateDossierModal from '@/components/rvm/CreateDossierModal'
+import { formatDate } from '@/utils/date'
 
 type DossierStatus = Enums<'dossier_status'>
 type ServiceType = Enums<'service_type'>
@@ -26,14 +27,6 @@ const DossierListPage = () => {
     search: searchTerm || undefined,
   })
 
-  const formatDate = (dateString: string | null) => {
-    if (!dateString) return '-'
-    return new Date(dateString).toLocaleDateString('nl-NL', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-    })
-  }
 
   return (
     <>

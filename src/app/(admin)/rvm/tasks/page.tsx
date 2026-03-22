@@ -14,6 +14,7 @@ import TaskStatusActions from '@/components/rvm/TaskStatusActions'
 import EditTaskForm, { type TaskFormData } from '@/components/rvm/EditTaskForm'
 import { toast } from 'react-toastify'
 import { getErrorMessage } from '@/utils/rls-error'
+import { formatDateShort } from '@/utils/date'
 
 type TaskStatus = Enums<'task_status'>
 
@@ -57,13 +58,7 @@ const TaskListPage = () => {
     }
   }
 
-  const formatDate = (dateString: string | null | undefined) => {
-    if (!dateString) return '-'
-    return new Date(dateString).toLocaleDateString('nl-NL', {
-      month: 'short',
-      day: 'numeric',
-    })
-  }
+  const formatDate = formatDateShort
 
   const getTaskTypeLabel = (type: string) => {
     const labels: Record<string, string> = {

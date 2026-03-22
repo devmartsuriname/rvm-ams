@@ -1,6 +1,7 @@
 import React, { forwardRef } from 'react'
 import { Table, Badge } from 'react-bootstrap'
 import { DecisionLifecycleBadge } from '@/components/rvm/StatusBadges'
+import { formatDateLong, formatDate as formatShortDateFn } from '@/utils/date'
 
 export interface DecisionReportData {
   id: string
@@ -30,24 +31,7 @@ interface DecisionReportProps {
   title?: string
 }
 
-const formatDate = (dateString: string | null | undefined) => {
-  if (!dateString) return '-'
-  return new Date(dateString).toLocaleDateString('nl-NL', {
-    weekday: 'long',
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-  })
-}
-
-const formatShortDate = (dateString: string | null | undefined) => {
-  if (!dateString) return '-'
-  return new Date(dateString).toLocaleDateString('nl-NL', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-  })
-}
+const formatShortDate = formatShortDateFn
 
 const getMeetingTypeLabel = (type: string | null | undefined) => {
   switch (type) {
@@ -92,7 +76,7 @@ const DecisionReport = forwardRef<HTMLDivElement, DecisionReportProps>(
             <div className="row">
               <div className="col-6">
                 <small className="text-muted">Date:</small>
-                <div className="fw-medium">{formatDate(meetingInfo.meeting_date)}</div>
+                <div className="fw-medium">{formatDateLong(meetingInfo.meeting_date)}</div>
               </div>
               <div className="col-3">
                 <small className="text-muted">Type:</small>

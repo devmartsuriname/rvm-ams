@@ -10,6 +10,7 @@ import { documentService } from '@/services/documentService'
 import { toast } from 'react-toastify'
 import { getErrorMessage } from '@/utils/rls-error'
 import type { DocumentWithVersion } from '@/services/documentService'
+import { formatDate } from '@/utils/date'
 
 const DOC_TYPE_LABELS: Record<string, string> = {
   proposal: 'Proposal',
@@ -33,8 +34,6 @@ const DossierDocumentsTab = ({ dossierId, decisions = [] }: Props) => {
   const [showUpload, setShowUpload] = useState(false)
   const [selectedDoc, setSelectedDoc] = useState<DocumentWithVersion | null>(null)
 
-  const formatDate = (d: string | null | undefined) =>
-    d ? new Date(d).toLocaleDateString('nl-NL', { year: 'numeric', month: 'short', day: 'numeric' }) : '-'
 
   const handleDownload = async (doc: DocumentWithVersion) => {
     if (!doc.current_version) return

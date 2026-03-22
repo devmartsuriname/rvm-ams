@@ -9,6 +9,7 @@ import { useState } from 'react'
 import type { Enums } from '@/integrations/supabase/types'
 import { useUserRoles } from '@/hooks/useUserRoles'
 import CreateMeetingModal from '@/components/rvm/CreateMeetingModal'
+import { formatDateWithWeekday } from '@/utils/date'
 
 type MeetingStatus = Enums<'meeting_status'>
 
@@ -21,15 +22,6 @@ const MeetingListPage = () => {
     status: statusFilter || undefined,
   })
 
-  const formatDate = (dateString: string | null) => {
-    if (!dateString) return '-'
-    return new Date(dateString).toLocaleDateString('nl-NL', {
-      weekday: 'short',
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-    })
-  }
 
   const getMeetingTypeLabel = (type: string | null) => {
     switch (type) {
@@ -115,7 +107,7 @@ const MeetingListPage = () => {
                   <tr key={meeting.id}>
                     <td>
                       <Link to={`/rvm/meetings/${meeting.id}`} className="text-primary">
-                        {formatDate(meeting.meeting_date)}
+                        {formatDateWithWeekday(meeting.meeting_date)}
                       </Link>
                     </td>
                     <td>
