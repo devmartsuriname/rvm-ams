@@ -167,8 +167,11 @@ export const documentService = {
       })
       .select()
 
-    if (versionError) throw versionError
-    if (!versionRows || versionRows.length === 0) {
+    if (versionError || !versionRows || versionRows.length === 0) {
+      // Storage cleanup: remove orphaned file
+      console.error('[DocumentService] Version creation failed, cleaning up storage:', versionError)
+      await supabase.storage.from('rvm-documents').remove([storagePath])
+      if (versionError) throw versionError
       const reason = await fetchViolationReason('rvm_document_version', documentId)
       throw new Error(reason ?? 'Version creation blocked by governance enforcement.')
     }

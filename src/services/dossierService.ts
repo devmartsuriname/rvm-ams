@@ -125,8 +125,13 @@ export const dossierService = {
       })
 
     if (itemError) {
-      // Rollback dossier if item creation fails
-      console.error('[DossierService] Failed to create item, dossier orphaned:', itemError)
+      // Rollback: attempt to delete orphan dossier (best-effort, RLS may block)
+      console.error('[DossierService] Failed to create item, attempting orphan cleanup:', itemError)
+      try {
+        await supabase.from('rvm_dossier').delete().eq('id', dossier.id)
+      } catch (deleteError) {
+        console.warn('[DossierService] Orphan dossier cleanup failed (RLS may block delete):', deleteError)
+      }
       throw itemError
     }
 
