@@ -1,11 +1,24 @@
-import DarkLogo from '@/assets/images/logo-dark.png'
-import LightLogo from '@/assets/images/logo-light.png'
+import IconifyIcon from '@/components/wrapper extraction/IconifyIcon'
 import TextFormInput from '@/components/from/TextFormInput'
 import PasswordFormInput from '@/components/from/PasswordFormInput'
 import { useEffect } from 'react'
 import { Card, CardBody, Col, Row } from 'react-bootstrap'
 import { Link } from 'react-router-dom'
 import useSignIn from '../useSignIn'
+
+const ICON = 'solar:widget-line-duotone'
+const ICON_COLOR = '#7e67fe'
+const MUTED = '#8486a7'
+
+const AuthLogo = ({ textColor }: { textColor: string }) => (
+  <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, height: 28 }}>
+    <IconifyIcon icon={ICON} style={{ color: ICON_COLOR, fontSize: 18, flexShrink: 0 }} />
+    <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', lineHeight: 1 }}>
+      <span style={{ fontFamily: 'Play, sans-serif', fontWeight: 700, fontSize: 11, color: textColor, whiteSpace: 'nowrap' }}>RVM Flow</span>
+      <span style={{ fontFamily: 'Play, sans-serif', fontWeight: 400, fontSize: 6.5, color: MUTED, whiteSpace: 'nowrap' }}>Management System</span>
+    </div>
+  </div>
+)
 
 const SignIn = () => {
   useEffect(() => {
@@ -28,10 +41,10 @@ const SignIn = () => {
                   <div className="text-center">
                     <div className="mx-auto mb-4 text-center auth-logo">
                       <Link to="/dashboards" className="logo-dark">
-                        <img src={DarkLogo} height={32} alt="logo dark" />
+                        <AuthLogo textColor="#21252e" />
                       </Link>
                       <Link to="/dashboards" className="logo-light">
-                        <img src={LightLogo} height={28} alt="logo light" />
+                        <AuthLogo textColor="#ffffff" />
                       </Link>
                     </div>
                     <h4 className="fw-bold text-dark mb-2">Welcome Back!</h4>
