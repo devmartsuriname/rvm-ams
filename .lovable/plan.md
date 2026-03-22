@@ -1,104 +1,115 @@
-# Plan: Fix Domain + Improve Vertical Spacing (EN + NL Manuals)
+# Plan: Fix Test Accounts to Match Phase-20/21 Seed Data
 
-## Changes to `/tmp/gen_manuals.py`
+## Problem
 
-### 1. Domain Fix
+Both manuals contain incorrect test accounts (`admin@rvmams.com`, `testpass123`, "Admin", "Analyst" roles) that don't match the authoritative Phase-20/21 seeder data.
 
-Replace all instances of `https://rvmams.lovable.app` with `https://rvmflow.com` (found on lines 304 and 517).
+## Changes to `/tmp/gen_manuals_v2.py` (content only, no layout/style changes)
 
-### 2. Spacing Adjustments (styles only, no content changes)
+### 1. English Manual — Test Accounts Table (lines ~314-319)
 
-Update `make_styles()` function:
+**Before:**
 
+```python
+["admin@rvmams.com", "testpass123", "Admin", "Full system access"],
+["secretary@rvmams.com", "testpass123", "Secretary", "Create/edit dossiers, meetings, agenda items"],
+["chair@rvmams.com", "testpass123", "Chair (RVM)", "Approve/reject decisions, finalize meetings"],
+["analyst@rvmams.com", "testpass123", "Analyst", "Review dossiers, manage tasks"],
+["observer@rvmams.com", "testpass123", "Observer", "Read-only access to all data"],
+```
 
-| Style    | Property      | Current | New           |
-| -------- | ------------- | ------- | ------------- |
-| `h1`     | `spaceAfter`  | 12      | 18            |
-| `h2`     | `spaceBefore` | 12      | 14            |
-| `body`   | `spaceAfter`  | 6       | 6 (no change) |
-| `bullet` | `spaceAfter`  | 3       | 4             |
+**After:**
 
+```python
+["chair@rvm.local", "TestSeed2026!", "Chair (chair_rvm)", "Final decision authority — approve/finalize decisions"],
+["secretary@rvm.local", "TestSeed2026!", "Secretary (secretary_rvm)", "Meeting & workflow management — create meetings, manage agenda"],
+["member1@rvm.local", "TestSeed2026!", "Cabinet Member 1 (admin_dossier)", "Dossier lifecycle — create, edit, update status"],
+["member2@rvm.local", "TestSeed2026!", "Cabinet Member 2 (admin_agenda)", "Agenda management — manage agenda items, link dossiers"],
+["observer@rvm.local", "TestSeed2026!", "Observer (audit_readonly)", "Read-only audit access — view all, modify nothing"],
+```
 
-Update `make_callout()` helper:
+### 2. English Manual — Roles Table (lines ~334-339)
 
-- Add `Spacer(1, 10)` before and after callout blocks — applied at call sites or wrapped in a helper
-- Increase internal padding: `TOPPADDING` and `BOTTOMPADDING` from 8 to 10
+Replace "Admin" and "Analyst" rows with correct roles:
 
-Update `make_table()` helper:
+```python
+["Chair (chair_rvm)", "View all dossiers/meetings; approve decisions; finalize decisions; view audit logs & dashboards", "Cannot edit dossiers; cannot modify agenda items; cannot create meetings", "Decisions, Meetings, Dossiers (read), Audit"],
+["Secretary (secretary_rvm)", "Create/edit meetings; manage agenda items; assign tasks; upload documents; view all dossiers", "Cannot approve decisions; cannot finalize decisions", "Meetings, Dossiers, Tasks, Documents"],
+["Cabinet Member 1 (admin_dossier)", "Edit dossiers; update dossier status; create tasks; view meetings and agenda items", "Cannot approve decisions; cannot create meetings; cannot manage agenda", "Dossiers, Tasks"],
+["Cabinet Member 2 (admin_agenda)", "Manage agenda items; link dossiers to agenda; view meetings and dossiers", "Cannot modify dossiers; cannot finalize decisions; cannot chair-approve", "Agenda Items, Meetings (read)"],
+["Observer (audit_readonly)", "View all dossiers, meetings, decisions, and audit logs", "Cannot create, edit, or delete anything", "All screens (read-only)"],
+```
 
-- Not directly (table spacing is controlled at call sites); instead add spacers before/after tables
+### 3. Dutch Manual — Test Accounts Table (lines ~512-517)
 
-Add spacing around tables and callouts at the content-building level:
+Same data as EN, with Dutch descriptions:
 
-- Insert `Spacer(1, 10)` before and after every `make_table()` call
-- Insert `Spacer(1, 10)` before and after every `make_callout()` call
-- Ensure minimum 18pt between major sections (already handled by H1 `spaceBefore=18` + new `spaceAfter=18`)
+```python
+["chair@rvm.local", "TestSeed2026!", "Chair (chair_rvm)", "Definitieve besluitbevoegdheid — besluiten goedkeuren/afsluiten"],
+["secretary@rvm.local", "TestSeed2026!", "Secretary (secretary_rvm)", "Vergader- & workflowbeheer — vergaderingen aanmaken, agenda beheren"],
+["member1@rvm.local", "TestSeed2026!", "Cabinet Member 1 (admin_dossier)", "Dossierlevenscyclus — aanmaken, bewerken, status bijwerken"],
+["member2@rvm.local", "TestSeed2026!", "Cabinet Member 2 (admin_agenda)", "Agendabeheer — agendapunten beheren, dossiers koppelen"],
+["observer@rvm.local", "TestSeed2026!", "Observer (audit_readonly)", "Alleen-lezen audittoegang — alles bekijken, niets wijzigen"],
+```
 
-### 3. Regenerate Both PDFs
+### 4. Dutch Manual — Roles Table (lines ~532-537)
 
-Run the updated script to produce:
+Same role structure as EN, with Dutch descriptions.
+
+### 5. Column Width Adjustment
+
+Widen Email and Password columns slightly to fit `TestSeed2026!` and longer role names:
+
+- Email: 120 → 110
+- Password: 70 → 80
+- Role: 70 → 120
+- Remaining: auto-calculated
+
+## Output
+
+Regenerate both PDFs (same filenames, overwrite):
 
 - `/mnt/documents/RVM-AMS_User_Manual.pdf`
 - `/mnt/documents/RVM-AMS_Gebruikershandleiding.pdf`
 
-### 4. QA
-
-Visual inspection via `pdftoppm` — verify:
-
-- No `lovable.app` references remain
-- Improved vertical breathing between sections
-- No table overflow or layout breaks
+QA via `pdftoppm` to verify no `rvmams.com` or `testpass123` remains.
 
 **Total: 0 code changes, 2 PDFs regenerated**  
   
-**NOTE — COVER DESIGN REQUIREMENT (MISSING)**
+NOTE — ROLE CONSISTENCY CHECK (MANDATORY)
 
-Add logo to the cover page with strict layout rules:
+Before applying changes:
 
-1. Logo placement:
+1. Verify that the roles removed from the manual:
 
-   - Centered horizontally
+   - Admin
 
-   - Positioned ABOVE the title block
+   - Analyst
 
-2. Logo size:
+DO NOT exist in the current application / database / RLS policies.
 
-   - Same visual scale as in app (approx 114x28 ratio)
+2. If these roles DO exist in the system:
 
-   - Not oversized — must feel balanced with title
+   - DO NOT remove them from the manual
 
-3. Spacing:
+   - Instead:
 
-   - 20pt space between logo and title
+     - Keep them
 
-   - Maintain clear visual hierarchy
+     - Mark them as:
 
-4. Order (top → bottom):
+       "System / Internal role (not part of seed test accounts)"
 
-   - Logo
+3. Manuals must reflect:
 
-   - Title: "RVM Flow"
+   - Actual system roles (UI + RLS)
 
-   - Tagline: "Management System"
+   - AND seed test accounts (Phase-20/21)
 
-   - Subtitle: Council of Ministers / Raad van Ministers
+4. No mismatch allowed between:
 
-   - Version + Date
+   - Manual
 
-5. Alignment:
+   - UI roles
 
-   - Entire cover is CENTER aligned
-
-6. Constraints:
-
-   - Do NOT break page layout
-
-   - Do NOT push content to next page
-
-   - Must remain print-safe
-
-Apply to BOTH:
-
-- EN manual
-
-- NL manual
+   - Database roles
