@@ -178,3 +178,22 @@ Future changes must not break:
 - **Environment configuration** — Supabase credentials must remain environment-variable-driven with fail-fast validation. No hardcoded URLs or keys.
 - **Rollback logic** — Document storage cleanup and dossier orphan rollback patterns must be preserved in all service layer mutations.
 - **Audit chain** — The append-only audit trail, immutability triggers, illegal attempt logging, and governance enforcement triggers must remain intact and unmodified.
+
+---
+
+## Known Platform Constraints
+
+### lovable-tagger dependency
+
+- This dependency may be automatically re-injected by the Lovable platform in `package.json`
+- It is **NOT** imported or used in runtime
+- It has **NO** impact on:
+  - Application behavior
+  - Security
+  - Build output
+
+**Classification:** Non-functional manifest drift (platform-managed)
+
+**Rule:**
+- Do NOT attempt repeated removal
+- Treat as accepted exception unless runtime usage appears
