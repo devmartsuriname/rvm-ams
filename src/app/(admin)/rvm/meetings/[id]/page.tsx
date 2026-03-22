@@ -408,7 +408,7 @@ const MeetingDetailPage = () => {
                         </td>
                         <td className="small text-muted">
                           {decision.chair_approved_at
-                            ? formatDate(decision.chair_approved_at)
+                            ? formatDateShort(decision.chair_approved_at)
                             : '—'}
                         </td>
                         <td>
