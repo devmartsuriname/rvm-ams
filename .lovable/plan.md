@@ -1,115 +1,147 @@
-# Plan: Fix Test Accounts to Match Phase-20/21 Seed Data
+# Analysis Report: Dossier Creation + Meeting Flow + Calendar Bug
 
-## Problem
+## PART 1 — DOSSIER CREATION
 
-Both manuals contain incorrect test accounts (`admin@rvmams.com`, `testpass123`, "Admin", "Analyst" roles) that don't match the authoritative Phase-20/21 seeder data.
+### Root Cause: Missing `admin_intake` role in seed accounts
 
-## Changes to `/tmp/gen_manuals_v2.py` (content only, no layout/style changes)
+**By design**, dossier creation requires the `admin_intake` role:
 
-### 1. English Manual — Test Accounts Table (lines ~314-319)
+- UI gate: `canCreateDossier` = `isSuperAdmin || hasRole('admin_intake')` (line 20, useUserRoles.ts)
+- RLS INSERT policy: `has_role('admin_intake') OR is_super_admin()`
 
-**Before:**
+**No seed test account has `admin_intake**`:
 
-```python
-["admin@rvmams.com", "testpass123", "Admin", "Full system access"],
-["secretary@rvmams.com", "testpass123", "Secretary", "Create/edit dossiers, meetings, agenda items"],
-["chair@rvmams.com", "testpass123", "Chair (RVM)", "Approve/reject decisions, finalize meetings"],
-["analyst@rvmams.com", "testpass123", "Analyst", "Review dossiers, manage tasks"],
-["observer@rvmams.com", "testpass123", "Observer", "Read-only access to all data"],
+- chair = `chair_rvm`
+- secretary = `secretary_rvm`
+- member1 = `admin_dossier` (can EDIT, not CREATE)
+- member2 = `admin_agenda`
+- observer = `audit_readonly`
+
+**This is NOT a bug** — it's a gap in test data. The "New Dossier" button is implemented (lines 43-51, dossiers/page.tsx) but hidden because no test user has `admin_intake`.
+
+### Fix Options
+
+- **Option A (recommended)**: Add `admin_intake` as a secondary role to `member1@rvm.local` (who already has `admin_dossier`). This makes member1 the full dossier lifecycle user (intake + management).
+- **Option B**: Grant `admin_intake` to `secretary@rvm.local` as a secondary role.
+
+**Implementation**: Database INSERT into `user_role` table for the chosen user. No code changes needed.
+
+---
+
+## PART 2 — MEETING CLOSE PERMISSION
+
+### Analysis: Should work — needs runtime verification
+
+The RLS UPDATE policy for `rvm_meeting`:
+
+```sql
+(has_any_role(['secretary_rvm', 'admin_agenda']) AND status <> 'closed') OR is_super_admin()
 ```
 
-**After:**
+The `USING` expression checks the **current** (old) row. When a meeting is `published`, `status <> 'closed'` = TRUE, so the update is allowed. The `enforce_meeting_status_transition` trigger then validates `published → closed` via the `status_transitions` table.
 
-```python
-["chair@rvm.local", "TestSeed2026!", "Chair (chair_rvm)", "Final decision authority — approve/finalize decisions"],
-["secretary@rvm.local", "TestSeed2026!", "Secretary (secretary_rvm)", "Meeting & workflow management — create meetings, manage agenda"],
-["member1@rvm.local", "TestSeed2026!", "Cabinet Member 1 (admin_dossier)", "Dossier lifecycle — create, edit, update status"],
-["member2@rvm.local", "TestSeed2026!", "Cabinet Member 2 (admin_agenda)", "Agenda management — manage agenda items, link dossiers"],
-["observer@rvm.local", "TestSeed2026!", "Observer (audit_readonly)", "Read-only audit access — view all, modify nothing"],
+**Possible causes of the reported error**:
+
+1. The `published → closed` transition may be missing from `status_transitions` table
+2. The `meetingService.updateMeetingStatus` uses `handleGuardedUpdate` which checks for RETURN NULL violations — the trigger may be blocking silently
+
+### Fix
+
+- **Step 1**: Query `status_transitions` table to confirm `(meeting, published, closed)` exists
+- **Step 2**: If missing, add it via migration
+- **Step 3**: If present, the issue is likely a different trigger or RLS edge case — add console logging
+
+---
+
+## PART 3 — CALENDAR DATE BUG (CONFIRMED)
+
+### Root Cause: Timezone interpretation of date-only strings
+
+`new Date('2026-03-22')` parses as **UTC midnight** (2026-03-22T00:00:00Z). In any timezone west of UTC, this becomes the previous day. In timezones east of UTC (like Suriname, UTC-3), `toLocaleDateString` may show the correct day, but this is fragile.
+
+The bug affects **every `formatDate` function** across the codebase (10+ files, 65+ occurrences). All use the same pattern: `new Date(dateString).toLocaleDateString(...)`.
+
+### Fix
+
+Update the centralized `src/utils/date.ts` `formatDate` function to append `T12:00:00` to date-only strings (no "T" present), forcing midday interpretation that's safe in all timezones. Then replace all inline `formatDate` definitions across the codebase with imports from `src/utils/date.ts`.
+
+```typescript
+// Fix: force local timezone interpretation for date-only strings
+export const formatDate = (dateString: string | null | undefined): string => {
+  if (!dateString) return '-'
+  // Date-only strings (YYYY-MM-DD) → append T12:00:00 to avoid UTC midnight rollback
+  const safe = dateString.includes('T') ? dateString : dateString + 'T12:00:00'
+  return new Date(safe).toLocaleDateString('nl-NL', { ... })
+}
 ```
 
-### 2. English Manual — Roles Table (lines ~334-339)
+**Files to update** (replace inline formatDate with import):
 
-Replace "Admin" and "Analyst" rows with correct roles:
+1. `src/app/(admin)/rvm/dossiers/page.tsx`
+2. `src/app/(admin)/rvm/dossiers/[id]/page.tsx`
+3. `src/app/(admin)/rvm/meetings/page.tsx`
+4. `src/app/(admin)/rvm/meetings/[id]/page.tsx`
+5. `src/app/(admin)/rvm/tasks/page.tsx`
+6. `src/app/(admin)/rvm/decisions/page.tsx`
+7. `src/components/rvm/DecisionReport.tsx`
+8. `src/components/rvm/DossierDocumentsTab.tsx`
+9. `src/components/rvm/DocumentVersionModal.tsx`
 
-```python
-["Chair (chair_rvm)", "View all dossiers/meetings; approve decisions; finalize decisions; view audit logs & dashboards", "Cannot edit dossiers; cannot modify agenda items; cannot create meetings", "Decisions, Meetings, Dossiers (read), Audit"],
-["Secretary (secretary_rvm)", "Create/edit meetings; manage agenda items; assign tasks; upload documents; view all dossiers", "Cannot approve decisions; cannot finalize decisions", "Meetings, Dossiers, Tasks, Documents"],
-["Cabinet Member 1 (admin_dossier)", "Edit dossiers; update dossier status; create tasks; view meetings and agenda items", "Cannot approve decisions; cannot create meetings; cannot manage agenda", "Dossiers, Tasks"],
-["Cabinet Member 2 (admin_agenda)", "Manage agenda items; link dossiers to agenda; view meetings and dossiers", "Cannot modify dossiers; cannot finalize decisions; cannot chair-approve", "Agenda Items, Meetings (read)"],
-["Observer (audit_readonly)", "View all dossiers, meetings, decisions, and audit logs", "Cannot create, edit, or delete anything", "All screens (read-only)"],
-```
+---
 
-### 3. Dutch Manual — Test Accounts Table (lines ~512-517)
+## PART 4 — SMOKE TEST
 
-Same data as EN, with Dutch descriptions:
+Cannot perform live smoke test in plan mode. After fixes are implemented, a structured test per role should verify:
 
-```python
-["chair@rvm.local", "TestSeed2026!", "Chair (chair_rvm)", "Definitieve besluitbevoegdheid — besluiten goedkeuren/afsluiten"],
-["secretary@rvm.local", "TestSeed2026!", "Secretary (secretary_rvm)", "Vergader- & workflowbeheer — vergaderingen aanmaken, agenda beheren"],
-["member1@rvm.local", "TestSeed2026!", "Cabinet Member 1 (admin_dossier)", "Dossierlevenscyclus — aanmaken, bewerken, status bijwerken"],
-["member2@rvm.local", "TestSeed2026!", "Cabinet Member 2 (admin_agenda)", "Agendabeheer — agendapunten beheren, dossiers koppelen"],
-["observer@rvm.local", "TestSeed2026!", "Observer (audit_readonly)", "Alleen-lezen audittoegang — alles bekijken, niets wijzigen"],
-```
+1. member1 can create + edit dossier
+2. secretary can create meeting, publish, and close
+3. secretary can add agenda items and link dossiers
+4. chair can approve decisions
+5. observer has read-only access everywhere
 
-### 4. Dutch Manual — Roles Table (lines ~532-537)
+---
 
-Same role structure as EN, with Dutch descriptions.
+## Summary
 
-### 5. Column Width Adjustment
 
-Widen Email and Password columns slightly to fit `TestSeed2026!` and longer role names:
+| Issue                      | Type                        | Root Cause                                | Fix                                     |
+| -------------------------- | --------------------------- | ----------------------------------------- | --------------------------------------- |
+| Dossier creation invisible | Data gap                    | No test account has `admin_intake`        | Add role to member1 via DB              |
+| Meeting close fails        | Possibly missing transition | Need to verify `status_transitions` table | Add row if missing                      |
+| Date off by one day        | Code bug                    | UTC midnight timezone shift               | Fix `formatDate` in utils + consolidate |
 
-- Email: 120 → 110
-- Password: 70 → 80
-- Role: 70 → 120
-- Remaining: auto-calculated
 
-## Output
+## Implementation Order
 
-Regenerate both PDFs (same filenames, overwrite):
+1. Query `status_transitions` to confirm/add `published → closed`
+2. Add `admin_intake` role to member1
+3. Fix `formatDate` timezone bug in `src/utils/date.ts`
+4. Replace all inline formatDate with centralized import (9 files)
 
-- `/mnt/documents/RVM-AMS_User_Manual.pdf`
-- `/mnt/documents/RVM-AMS_Gebruikershandleiding.pdf`
-
-QA via `pdftoppm` to verify no `rvmams.com` or `testpass123` remains.
-
-**Total: 0 code changes, 2 PDFs regenerated**  
+**Total: ~10 files modified, 1 DB migration (role + possibly transition row)**  
   
-NOTE — ROLE CONSISTENCY CHECK (MANDATORY)
+NOTE — GOVERNANCE VALIDATION REQUIRED
 
-Before applying changes:
+Before implementing the admin_intake role assignment:
 
-1. Verify that the roles removed from the manual:
+1. Confirm from project workflow:
 
-   - Admin
+   - Which role is officially responsible for dossier creation?
 
-   - Analyst
+2. If Cabinet Member (admin_dossier) is NOT intended for intake:
 
-DO NOT exist in the current application / database / RLS policies.
-
-2. If these roles DO exist in the system:
-
-   - DO NOT remove them from the manual
+   - Do NOT assign admin_intake to member1
 
    - Instead:
 
-     - Keep them
+     - Assign to secretary OR
 
-     - Mark them as:
+     - Define dedicated intake role
 
-       "System / Internal role (not part of seed test accounts)"
+3. Document this decision explicitly in:
 
-3. Manuals must reflect:
+   - Role matrix
 
-   - Actual system roles (UI + RLS)
+   - Manual (EN + NL)
 
-   - AND seed test accounts (Phase-20/21)
-
-4. No mismatch allowed between:
-
-   - Manual
-
-   - UI roles
-
-   - Database roles
+No role changes without governance confirmation.
