@@ -1,35 +1,26 @@
 
 
-# Plan: Fix Logo Visual Size to Match Darkone Demo
+# Plan: Increase Logo Size by 2 Steps
 
-## Problem
-Current logo renders too small inside containers. Comparing screenshots:
-- **Darkone demo**: Icon ~26px, title ~18px, tagline ~10px — fills the logo area with strong visual weight
-- **Current RVM Flow**: Icon 18px, title 11px, tagline 6.5px — appears thin and undersized
+## Current → New Values
 
-## Changes (internal scaling only, no container changes)
+| Element | Current | New |
+|---|---|---|
+| **Container height** | 26px | 36px |
+| **Icon (expanded)** | 24px | 30px |
+| **Title "RVM Flow"** | 16px | 20px |
+| **Tagline** | 9px | 12px |
+| **Gap** | 8px | 10px |
+| **Icon (collapsed)** | 22px | 26px |
+
+## Files Modified
 
 ### 1. `src/components/wrapper/LogoBox.tsx`
-
-**LogoLgContent** (inside 26px height container):
-- Icon: `fontSize: 18` → `fontSize: 24`
-- Gap: `6` → `8`
-- Title "RVM Flow": `fontSize: 11` → `fontSize: 16`, keep `fontWeight: 700`
-- Tagline "Management System": `fontSize: 6.5` → `fontSize: 9`
-
-**LogoSmContent** (inside 24×24 container):
-- Icon: `fontSize: 18` → `fontSize: 22`
+- `LogoLgContent`: height 26→36, icon 24→30, gap 8→10, title 16→20, tagline 9→12
+- `LogoSmContent`: icon fontSize 22→26
 
 ### 2. `src/app/(other)/auth/sign-in/components/SignIn.tsx`
+- `AuthLogo`: Same scaling (height 28→38, icon 24→30, gap 8→10, title 16→20, tagline 9→12)
 
-**AuthLogo** (inside 28px height container):
-- Same scaling: icon 24px, gap 8, title 16px, tagline 9px
-
-### Files touched
-| File | Change |
-|---|---|
-| `src/components/wrapper/LogoBox.tsx` | Icon/text size increase, gap adjustment |
-| `src/app/(other)/auth/sign-in/components/SignIn.tsx` | Same scaling applied |
-
-**0 container changes, 0 CSS changes, 0 structural changes**
+**0 CSS changes, 0 structural changes — internal scaling only**
 
