@@ -1,54 +1,31 @@
-# Plan: Generate RVM-AMS User Manual (PDF, Non-Technical)
+
+
+# Plan: Generate Dutch Version of RVM-AMS User Manual
 
 ## What
+Create a Dutch translation of the existing RVM-AMS User Manual PDF at `/mnt/documents/RVM-AMS_Gebruikershandleiding.pdf`.
 
-Generate a user-friendly PDF manual for RVM-AMS at `/mnt/documents/RVM-AMS_User_Manual.pdf`. Written for non-technical RVM team members using simple instructional language ("Go to…", "Click…", "Select…").
+## Approach
+- Translate all 8 sections to Dutch using the same structure and layout
+- Keep technical terms (route names, button labels) as they appear in the UI
+- Use the same reportlab Platypus layout, styling, and color coding
+- Same professional formatting: headers, footers, page numbers, role colors
 
-## Content (8 sections, derived from codebase analysis already completed)
+## Content Translation Map
 
-1. **System Overview** — What the system is, what it helps you do (2 paragraphs)
-2. **Logging In** — Step-by-step with test accounts table
-3. **Your Role** — What each role can/cannot do, written as bullet lists
-4. **The Meeting Workflow** — Full narrative from Secretary creating a meeting through Chair finalizing decisions (numbered steps with "Go to…", "Click…" instructions)
-5. **Screen-by-Screen Guide** — Each page explained: what you see, what you can do
-6. **Common Tasks** — 4 how-to mini-guides (create meeting, approve decision, assign task, check audit)
-7. **Rules You Should Know** — Governance rules in plain language
-8. **Quick Test Checklist** — 10-step numbered checklist for live demo
+| English Section | Dutch Section |
+|---|---|
+| System Overview | Systeemoverzicht |
+| Logging In | Inloggen |
+| Your Role | Uw Rol |
+| The Meeting Workflow | Het Vergaderworkflow |
+| Screen-by-Screen Guide | Scherm-voor-Scherm Gids |
+| Common Tasks | Veelvoorkomende Taken |
+| Rules You Should Know | Regels die u Moet Weten |
+| Quick Test Checklist | Snelle Testchecklist |
 
-## Implementation
+## Output
+- `/mnt/documents/RVM-AMS_Gebruikershandleiding.pdf`
+- QA via `pdftoppm` visual inspection
+- **0 code changes**
 
-- Python script using `reportlab` Platypus
-- Professional layout: headers, footers, page numbers, role color coding
-- Simple language throughout — no technical jargon
-- QA via `pdftoppm` visual inspection, fix any issues found
-- Output: `/mnt/documents/RVM-AMS_User_Manual.pdf`
-
-**Total: 1 PDF generated, 0 code changes**  
-  
-NOTE — ACTION-LEVEL CLARITY REQUIRED
-
-For every step in workflows and tasks:
-
-- Specify EXACT UI interaction:
-
-  - Button names
-
-  - Form fields
-
-  - Tabs/pages
-
-- Include outcome after action:
-
-  - What should the user see?
-
-  - What confirms success?
-
-Example:
-
-Instead of:
-
-"Click create meeting"
-
-Use:
-
-"Click 'Create Meeting' button → a form opens → fill in title and date → click 'Save' → meeting appears in list"
