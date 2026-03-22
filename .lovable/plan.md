@@ -1,55 +1,123 @@
-# Plan: Apply Phase 26 Governance Artifacts (Exact Git Copy)
+# Plan: Phase 26 Baseline Lock & Documentation Update
 
 ## What
 
-Create 4 documentation files using the exact content provided from Git uploads. No modifications, no formatting changes, no inferred content.
+Update `docs/architecture.md` and `docs/backend.md` to reflect Phase 26 closure, including summaries of all applied changes and the official baseline lock declaration.
 
-## Mapping
+## Changes
+
+### 1. `docs/architecture.md`
+
+**Line 3** — Update timestamp:
+
+```
+**Last Updated:** 2026-03-22 (Phase 26 Complete — Remediation & Baseline Lock)
+```
+
+**Line 54** — Append Phase 26 to Phase Completion Status paragraph:
+
+```
+**Phase 26 (Remediation & Baseline Lock) CLOSED** — Supabase client migrated to environment variables (`VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY`) with fail-fast validation. `lovable-tagger` removed from dependencies and Vite config. Document service hardened with storage cleanup on failed version inserts. Dossier service hardened with orphan rollback on failed `rvm_item` creation. `.env.example` added. See `docs/Phase-25-Claude-Audit-Report.md` and `docs/Phase-26-Remediation-Report.md`.
+```
+
+**After line 158** — Add new section:
+
+```markdown
+### Phase 26 — Remediation & Baseline Lock
+
+- Environment variable migration: Supabase URL and anon key read from `import.meta.env` with fail-fast on missing values
+- `lovable-tagger` fully removed (devDependency + Vite plugin)
+- Document service: storage file cleanup on failed version record insert (both create and upload-new-version paths)
+- Dossier service: orphan dossier rollback on failed `rvm_item` insert (best-effort, RLS-aware)
+- `.env.example` added with required variable placeholders
+- Governance artifacts: Phase 25 Claude Audit Report, Phase 26 Remediation Report, restore points RP-P26-pre/post
+
+See [Phase 25 Claude Audit Report](Phase-25-Claude-Audit-Report.md) and [Phase 26 Remediation Report](Phase-26-Remediation-Report.md).
+
+---
+
+## Phase 26 Baseline
+
+**This version is the official stable baseline for the AMS-RVM system.**
+
+Future changes must not break:
+- **Environment configuration** — Supabase credentials must remain environment-variable-driven with fail-fast validation. No hardcoded URLs or keys.
+- **Rollback logic** — Document storage cleanup and dossier orphan rollback patterns must be preserved in all service layer mutations.
+- **Audit chain** — The append-only audit trail, immutability triggers, illegal attempt logging, and governance enforcement triggers must remain intact and unmodified.
+```
+
+### 2. `docs/backend.md`
+
+**Line 3** — Update timestamp:
+
+```
+**Last Updated:** 2026-03-22 (Phase 26 Complete — Remediation & Baseline Lock)
+```
+
+**After line 47** — Add Phase 26 row to the phase table:
+
+```
+| 26 | Remediation & Baseline Lock — Env var migration (fail-fast), lovable-tagger removal, document storage cleanup on failure, dossier orphan rollback, `.env.example`. See [Claude Audit Report](Phase-25-Claude-Audit-Report.md), [Remediation Report](Phase-26-Remediation-Report.md) | CLOSED |
+```
+
+**After line 209** (end of file) — Add new section:
+
+```markdown
+
+## Phase 26 — Remediation & Baseline Lock (CLOSED)
+
+### Changes Applied
+
+| Change | File | Description |
+|--------|------|-------------|
+| Env var migration | `src/integrations/supabase/client.ts` | Supabase URL/key from `import.meta.env` with fail-fast |
+| Tagger removal | `vite.config.ts`, `package.json` | `lovable-tagger` fully removed |
+| Storage cleanup | `src/services/documentService.ts` | Failed version insert triggers storage file removal |
+| Orphan rollback | `src/services/dossierService.ts` | Failed `rvm_item` insert triggers dossier delete (best-effort) |
+| Env template | `.env.example` | Variable placeholders for deployment |
+
+### Governance Artifacts
+
+- `docs/Phase-25-Claude-Audit-Report.md` — Full codebase audit by Claude Code
+- `docs/Phase-26-Remediation-Report.md` — Remediation execution report
+- `Project Restore Points/RP-P26-remediation-pre.md`
+- `Project Restore Points/RP-P26-remediation-post.md`
+
+---
+
+## Phase 26 Baseline
+
+**This version is the official stable baseline for the AMS-RVM system.**
+
+Future changes must not break:
+- **Environment configuration** — Supabase credentials must remain environment-variable-driven with fail-fast validation. No hardcoded URLs or keys.
+- **Rollback logic** — Document storage cleanup and dossier orphan rollback patterns must be preserved in all service layer mutations.
+- **Audit chain** — The append-only audit trail, immutability triggers, illegal attempt logging, and governance enforcement triggers must remain intact and unmodified.
+```
+
+## Summary
 
 
-| #   | Source (uploaded)                      | Target path                                         | Lines |
-| --- | -------------------------------------- | --------------------------------------------------- | ----- |
-| 1   | `Phase-25-Claude-Code-Audit-Report.md` | `docs/Phase-25-Claude-Audit-Report.md`              | 714   |
-| 2   | `Phase-26A-Remediation-Report.md`      | `docs/Phase-26-Remediation-Report.md`               | 271   |
-| 3   | `RP-Phase-26C-pre.md`                  | `Project Restore Points/RP-P26-remediation-pre.md`  | 71    |
-| 4   | `RP-Phase-26C-post.md`                 | `Project Restore Points/RP-P26-remediation-post.md` | 75    |
+| #   | File                   | Action                                                                                           |
+| --- | ---------------------- | ------------------------------------------------------------------------------------------------ |
+| 1   | `docs/architecture.md` | Update timestamp, add Phase 26 to completion status, add Phase 26 section + Baseline declaration |
+| 2   | `docs/backend.md`      | Update timestamp, add Phase 26 row, add Phase 26 section + Baseline declaration                  |
 
 
-## Deviation Notice
-
-The uploaded restore point files document **Phase 26C** (Chair Approval Timestamp Hardening), not a generic Phase 26 remediation. Content will be copied exactly as provided — the target filenames follow the naming convention requested by the user, but the internal content references Phase 26C. No content modification will be made to reconcile this.
-
-## Operations
-
-
-| #   | Op     | File                                                                       |
-| --- | ------ | -------------------------------------------------------------------------- |
-| 1   | Create | `docs/Phase-25-Claude-Audit-Report.md` — exact copy of upload              |
-| 2   | Create | `docs/Phase-26-Remediation-Report.md` — exact copy of upload               |
-| 3   | Create | `Project Restore Points/RP-P26-remediation-pre.md` — exact copy of upload  |
-| 4   | Create | `Project Restore Points/RP-P26-remediation-post.md` — exact copy of upload |
-
-
-**Total: 4 files created, 0 files modified, 0 code changes**  
+**Total: 2 files updated, 0 code changes**  
   
-NOTE — CONTENT INTEGRITY VERIFICATION
+NOTE — DOCUMENT INTEGRITY
 
-After creating the files, you must verify:
+When updating documentation:
 
-- File content matches the provided input EXACTLY
+- Do NOT duplicate existing Phase 26 sections
 
-- No truncation occurred
+- Do NOT overwrite unrelated content
 
-- Line counts match expected:
+- Append only in the specified locations
 
-  - Phase-25 report (~714 lines)
+- Preserve existing formatting and structure
 
-  - Phase-26 report (~271 lines)
+If structure conflict is detected:
 
-If any mismatch is detected:
-
-- STOP
-
-- Report the discrepancy
-
-- Do not partially complete Phase 26 closure
+- STOP and report instead of modifying layout
