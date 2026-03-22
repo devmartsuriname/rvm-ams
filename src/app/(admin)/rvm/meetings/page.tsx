@@ -9,6 +9,7 @@ import { useState } from 'react'
 import type { Enums } from '@/integrations/supabase/types'
 import { useUserRoles } from '@/hooks/useUserRoles'
 import CreateMeetingModal from '@/components/rvm/CreateMeetingModal'
+import { formatDateWithWeekday } from '@/utils/date'
 
 type MeetingStatus = Enums<'meeting_status'>
 
