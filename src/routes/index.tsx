@@ -83,6 +83,11 @@ const rvmRoutes: RoutesProps[] = [
     name: 'Search',
     element: <SearchPage />,
   },
+  {
+    path: '/logo-preview',
+    name: 'Logo Preview',
+    element: <LogoPreview />,
+  },
 ]
 
 export const authRoutes: RoutesProps[] = [
