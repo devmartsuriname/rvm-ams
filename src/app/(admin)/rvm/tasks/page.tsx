@@ -58,13 +58,7 @@ const TaskListPage = () => {
     }
   }
 
-  const formatDate = (dateString: string | null | undefined) => {
-    if (!dateString) return '-'
-    return new Date(dateString).toLocaleDateString('nl-NL', {
-      month: 'short',
-      day: 'numeric',
-    })
-  }
+  const formatDate = formatDateShort
 
   const getTaskTypeLabel = (type: string) => {
     const labels: Record<string, string> = {

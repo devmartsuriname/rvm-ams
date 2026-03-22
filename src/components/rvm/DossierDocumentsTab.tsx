@@ -34,8 +34,6 @@ const DossierDocumentsTab = ({ dossierId, decisions = [] }: Props) => {
   const [showUpload, setShowUpload] = useState(false)
   const [selectedDoc, setSelectedDoc] = useState<DocumentWithVersion | null>(null)
 
-  const formatDate = (d: string | null | undefined) =>
-    d ? new Date(d).toLocaleDateString('nl-NL', { year: 'numeric', month: 'short', day: 'numeric' }) : '-'
 
   const handleDownload = async (doc: DocumentWithVersion) => {
     if (!doc.current_version) return

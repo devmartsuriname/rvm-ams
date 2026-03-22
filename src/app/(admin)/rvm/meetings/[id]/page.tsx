@@ -39,15 +39,7 @@ const MeetingDetailPage = () => {
   const [manageDecisionAgendaId, setManageDecisionAgendaId] = useState<string | null>(null)
   const [manageDecisionAgendaNum, setManageDecisionAgendaNum] = useState<number>(0)
 
-  const formatDate = (dateString: string | null | undefined) => {
-    if (!dateString) return '-'
-    return new Date(dateString).toLocaleDateString('nl-NL', {
-      weekday: 'long',
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-    })
-  }
+  const formatDate = formatDateLong
 
   const getMeetingTypeLabel = (type: string | null | undefined) => {
     switch (type) {

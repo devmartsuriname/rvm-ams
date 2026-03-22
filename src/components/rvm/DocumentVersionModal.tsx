@@ -87,8 +87,7 @@ const DocumentVersionModal = ({ show, onHide, documentId, documentTitle, dossier
     return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i]
   }
 
-  const formatDate = (d: string | null) =>
-    d ? new Date(d).toLocaleDateString('nl-NL', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '-'
+  const formatDate = formatDateTime
 
   return (
     <Modal show={show} onHide={onHide} size="lg" centered>

@@ -94,14 +94,6 @@ const DecisionListPage = () => {
       : <IconifyIcon icon="bx:sort-down" className="ms-1" />
   }
 
-  const formatDate = (dateString: string | null | undefined) => {
-    if (!dateString) return '-'
-    return new Date(dateString).toLocaleDateString('nl-NL', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-    })
-  }
 
   const handlePrint = () => {
     setShowReport(true)

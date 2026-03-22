@@ -31,24 +31,7 @@ interface DecisionReportProps {
   title?: string
 }
 
-const formatDate = (dateString: string | null | undefined) => {
-  if (!dateString) return '-'
-  return new Date(dateString).toLocaleDateString('nl-NL', {
-    weekday: 'long',
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-  })
-}
-
-const formatShortDate = (dateString: string | null | undefined) => {
-  if (!dateString) return '-'
-  return new Date(dateString).toLocaleDateString('nl-NL', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-  })
-}
+const formatShortDate = formatDate
 
 const getMeetingTypeLabel = (type: string | null | undefined) => {
   switch (type) {

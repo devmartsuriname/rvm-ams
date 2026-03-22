@@ -26,14 +26,7 @@ const DossierDetailPage = () => {
   const updateDossier = useUpdateDossier()
   const [editMode, setEditMode] = useState(false)
 
-  const formatDate = (dateString: string | null | undefined) => {
-    if (!dateString) return '-'
-    return new Date(dateString).toLocaleDateString('nl-NL', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-    })
-  }
+  const formatDate = formatDateLong
 
   const isEditDisabled = dossier?.status ? LOCKED_STATUSES.includes(dossier.status) : false
   const showEditButton = canEditDossier && !isEditDisabled && !editMode

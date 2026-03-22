@@ -107,7 +107,7 @@ const MeetingListPage = () => {
                   <tr key={meeting.id}>
                     <td>
                       <Link to={`/rvm/meetings/${meeting.id}`} className="text-primary">
-                        {formatDate(meeting.meeting_date)}
+                        {formatDateWithWeekday(meeting.meeting_date)}
                       </Link>
                     </td>
                     <td>
