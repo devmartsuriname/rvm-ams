@@ -14,6 +14,7 @@ import DossierDocumentsTab from '@/components/rvm/DossierDocumentsTab'
 import { getErrorMessage } from '@/utils/rls-error'
 import { toast } from 'react-toastify'
 import type { Enums } from '@/integrations/supabase/types'
+import { formatDateLong } from '@/utils/date'
 
 const LOCKED_STATUSES: string[] = ['decided', 'archived', 'cancelled']
 
