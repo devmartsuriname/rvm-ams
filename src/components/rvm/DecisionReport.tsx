@@ -31,7 +31,7 @@ interface DecisionReportProps {
   title?: string
 }
 
-const formatShortDate = formatShortDateFn
+
 
 const getMeetingTypeLabel = (type: string | null | undefined) => {
   switch (type) {
