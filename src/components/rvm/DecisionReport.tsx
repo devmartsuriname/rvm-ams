@@ -119,8 +119,8 @@ const DecisionReport = forwardRef<HTMLDivElement, DecisionReportProps>(
                   <td>
                     <DecisionLifecycleBadge status={d.decision_status} isFinal={d.is_final} />
                   </td>
-                  <td className="small">{formatShortDate(d.chair_approved_at)}</td>
-                  <td className="small">{formatShortDate(d.created_at)}</td>
+                  <td className="small">{formatDate(d.chair_approved_at)}</td>
+                  <td className="small">{formatDate(d.created_at)}</td>
                 </tr>
               )
             })}
