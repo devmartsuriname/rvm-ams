@@ -22,15 +22,6 @@ const MeetingListPage = () => {
     status: statusFilter || undefined,
   })
 
-  const formatDate = (dateString: string | null) => {
-    if (!dateString) return '-'
-    return new Date(dateString).toLocaleDateString('nl-NL', {
-      weekday: 'short',
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-    })
-  }
 
   const getMeetingTypeLabel = (type: string | null) => {
     switch (type) {
