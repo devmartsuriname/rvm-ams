@@ -1,7 +1,7 @@
 import React, { forwardRef } from 'react'
 import { Table, Badge } from 'react-bootstrap'
 import { DecisionLifecycleBadge } from '@/components/rvm/StatusBadges'
-import { formatDateLong, formatDate } from '@/utils/date'
+import { formatDateLong, formatDate as formatShortDateFn } from '@/utils/date'
 
 export interface DecisionReportData {
   id: string
