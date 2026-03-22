@@ -319,7 +319,7 @@ const MeetingDetailPage = () => {
                             )}
                           </td>
                           <td className="small text-muted">
-                            {item.created_at ? new Date(item.created_at).toLocaleDateString('nl-NL') : '—'}
+                            {item.created_at ? formatDate(item.created_at) : '—'}
                           </td>
                           <td>
                             <div className="d-flex gap-1 flex-wrap">
