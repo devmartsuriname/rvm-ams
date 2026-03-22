@@ -20,7 +20,7 @@ import DecisionReport from '@/components/rvm/DecisionReport'
 import IconifyIcon from '@/components/wrapper/IconifyIcon'
 import { toast } from 'react-toastify'
 import type { Enums } from '@/integrations/supabase/types'
-import { formatDateLong } from '@/utils/date'
+import { formatDateLong, formatDate as formatDateShort } from '@/utils/date'
 
 const MeetingDetailPage = () => {
   const { id } = useParams<{ id: string }>()
