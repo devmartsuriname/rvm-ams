@@ -1,76 +1,134 @@
-# Plan: Fix HMR Error + Full Smoke Test
+# Plan: Governance Alignment — Update EN + NL User Manuals
 
-## Pre-requisite: Fix Runtime Error
+## What Changed (Source of Truth)
 
-The console shows `formatDate is not defined` in `DecisionReport.tsx`. The source code looks correct (line 4 imports `formatDate as formatShortDateFn`, line 34 assigns `const formatShortDate = formatShortDateFn`). However, this is likely a **stale HMR cache** from the previous batch edit. A full page reload should resolve it.
+From smoke test + governance docs, these facts must be reflected in manuals:
 
-If the error persists after reload, the fix is trivial: the import/alias chain works, but to eliminate any ambiguity, simplify line 4 and 34:
 
-**Current:**
+| Topic              | Current Manual Content            | Correct Behavior                                                             |
+| ------------------ | --------------------------------- | ---------------------------------------------------------------------------- |
+| Roles              | 5 roles listed, no `admin_intake` | 6 roles — `admin_intake` is separate, assigned as secondary role to member1  |
+| Dossier creation   | Generic "create dossier"          | Only `admin_intake` role can create; Proposal type requires OPA/ORAG subtype |
+| Agenda eligibility | Implies all dossiers selectable   | Only `registered` or `in_preparation` status dossiers appear                 |
+| Meeting lifecycle  | Not explicitly documented         | Draft → Published → Closed; secretary can publish AND close                  |
 
-```typescript
-import { formatDateLong, formatDate as formatShortDateFn } from '@/utils/date'
-// ...
-const formatShortDate = formatShortDateFn
+
+## Changes to `/tmp/gen_manuals_v2.py`
+
+### 1. Test Accounts Table — Add admin_intake info
+
+Update member1 row description in both EN and NL:
+
+- EN: `"Cabinet Member 1 (admin_dossier + admin_intake)"` → `"Dossier lifecycle + intake — create and manage dossiers"`
+- NL: Same structure, Dutch description
+
+### 2. Roles Table — Add admin_intake as distinct role
+
+Add a new row (or split member1's row) to clearly show `admin_intake` as a separate capability:
+
+**EN roles table** — add row:
+
+```python
+["Intake (admin_intake)", "Create new dossiers; register incoming items", "Cannot edit existing dossiers; cannot manage agenda or decisions", "Dossiers (create only)"]
 ```
 
-**Simplified to:**
+Update member1 row to show dual-role:
 
-```typescript
-import { formatDateLong, formatDate } from '@/utils/date'
-// ...
-// Remove line 34 entirely, replace all `formatShortDate(...)` calls with `formatDate(...)`
+```python
+["Cabinet Member 1 (admin_dossier + admin_intake)", "Create AND edit dossiers; update status; view meetings", "Cannot approve decisions; cannot create meetings", "Dossiers"]
 ```
 
-Lines 122 and 123 change from `formatShortDate(...)` to `formatDate(...)`.
+**NL roles table** — same structure, Dutch text.
 
-**Files: 1 (`src/components/rvm/DecisionReport.tsx`), 0 structural changes**
+### 3. Dossier Creation Section — Add proposal subtype constraint
 
----
+In Section 6 (Common Tasks / Veelvoorkomende Taken), update "Create a Dossier" guide:
 
-## Smoke Test Execution
+**EN**: Add callout block:
 
-After the fix, I will use browser tools to perform the full end-to-end test across all 5 roles. **You must be logged out in the preview first** so I can start the login flow.
+```
+IMPORTANT: When Service Type is "Proposal", you MUST select a Proposal Subtype (OPA or ORAG). The form will not submit without it.
+```
 
-### Test Matrix
+**NL**: Same as BELANGRIJK callout.
+
+### 4. Agenda Item Section — Clarify eligibility filter
+
+In Section 6, update "Add Agenda Item" guide:
+
+**EN**: Add note:
+
+```
+TIP: Only dossiers with status "Registered" or "In Preparation" appear in the dossier dropdown. Draft or decided dossiers are not eligible for agenda scheduling.
+```
+
+**NL**: Same as TIP callout.
+
+### 5. Meeting Workflow Section — Confirm lifecycle
+
+In Section 4 (Meeting Workflow), explicitly state:
+
+**EN**:
+
+- Meeting lifecycle: Draft → Published → Closed
+- Secretary (secretary_rvm) can publish AND close meetings
+- Once closed, no further modifications are allowed
+
+**NL**: Same content in Dutch.
+
+### 6. Regenerate Both PDFs
+
+Run updated script → overwrite:
+
+- `/mnt/documents/RVM-AMS_User_Manual.pdf`
+- `/mnt/documents/RVM-AMS_Gebruikershandleiding.pdf`
+
+QA via `pdftoppm`.
+
+## Files Affected
 
 
-| Step | Login                                             | Action                         | Expected                          |
-| ---- | ------------------------------------------------- | ------------------------------ | --------------------------------- |
-| 1    | [member1@rvm.local](mailto:member1@rvm.local)     | Navigate to Dossiers           | "New Dossier" button visible      |
-| 2    | [member1@rvm.local](mailto:member1@rvm.local)     | Create dossier                 | Appears in list, status=draft     |
-| 3    | [secretary@rvm.local](mailto:secretary@rvm.local) | Create meeting + select date   | Correct date stored (no -1 day)   |
-| 4    | [secretary@rvm.local](mailto:secretary@rvm.local) | Publish meeting                | Status → published                |
-| 5    | [secretary@rvm.local](mailto:secretary@rvm.local) | Add agenda item + link dossier | Dossier in dropdown, item created |
-| 6    | [secretary@rvm.local](mailto:secretary@rvm.local) | Close meeting                  | Status → closed, no error         |
-| 7    | [chair@rvm.local](mailto:chair@rvm.local)         | View meeting + decisions       | Read access confirmed             |
-| 8    | [observer@rvm.local](mailto:observer@rvm.local)   | View dossiers/meetings         | Read-only, no create/edit buttons |
+| File                                               | Change                                                     |
+| -------------------------------------------------- | ---------------------------------------------------------- |
+| `/tmp/gen_manuals_v2.py`                           | Content updates (roles, dossier, agenda, meeting sections) |
+| `/mnt/documents/RVM-AMS_User_Manual.pdf`           | Regenerated                                                |
+| `/mnt/documents/RVM-AMS_Gebruikershandleiding.pdf` | Regenerated                                                |
 
 
-Each step will include a screenshot as proof.  
+**0 application code changes. 2 PDFs regenerated.**  
   
-NOTE — RUNTIME GATE BEFORE SMOKE TEST
+**NOTE — Governance Traceability Enforcement**
 
-Before starting the smoke test:
+Before regenerating manuals, enforce alignment with authoritative AMS-RVM core documents:
 
-1. Fully reload the preview/application
+1. Cross-check all documented roles against:
 
-2. Verify the runtime error is gone
+   - rls_role_matrix_ams_rvm_core_v_[1.md](http://1.md)
 
-3. Confirm:
+   Ensure admin_intake is either:
 
-   - /rvm/decisions renders correctly
+   a) Explicitly defined in RLS, OR
 
-   - browser console shows no formatDate-related errors
+   b) Documented as a derived/secondary capability (not a primary governance role)
 
-If the runtime error still exists:
+2. Validate workflow statements against:
 
-- STOP
+   - workflow_diagrams_ams_rvm_core_v_[1.md](http://1.md)
 
-- fix that first
+   Confirm:
 
-- do NOT continue into smoke testing
+   - Draft → Published → Closed transitions match status_transitions table
 
-Smoke test results are only valid if runtime is clean before step 1.
+   - Secretary permissions are enforced at data layer (not UI only)
 
-**Output: Structured PASS/FAIL report with screenshots per role**
+3. Add clarification in manuals:
+
+   - System behavior is enforced via backend governance (RLS + DB constraints)
+
+   - UI visibility does not override governance rules
+
+4. Ensure auditability statement remains accurate:
+
+   - Any new role (admin_intake) must not bypass audit logging or decision immutability
+
+This ensures manuals remain audit-proof and governance-compliant, not just UI-aligned.
