@@ -1,134 +1,215 @@
-# Plan: Governance Alignment — Update EN + NL User Manuals
+# Plan: Full Rebuild of User Manuals — Ministerial Document Standards (EN + NL)
 
-## What Changed (Source of Truth)
+## Approach
 
-From smoke test + governance docs, these facts must be reflected in manuals:
+Write a complete new Python script (`/tmp/gen_manuals_v4.py`) using ReportLab Platypus that generates both manuals from scratch with strict formatting. The script will be self-contained with all content embedded, no external dependencies beyond ReportLab.
 
+## Document Design System
 
-| Topic              | Current Manual Content            | Correct Behavior                                                             |
-| ------------------ | --------------------------------- | ---------------------------------------------------------------------------- |
-| Roles              | 5 roles listed, no `admin_intake` | 6 roles — `admin_intake` is separate, assigned as secondary role to member1  |
-| Dossier creation   | Generic "create dossier"          | Only `admin_intake` role can create; Proposal type requires OPA/ORAG subtype |
-| Agenda eligibility | Implies all dossiers selectable   | Only `registered` or `in_preparation` status dossiers appear                 |
-| Meeting lifecycle  | Not explicitly documented         | Draft → Published → Closed; secretary can publish AND close                  |
+### Typography
 
 
-## Changes to `/tmp/gen_manuals_v2.py`
+| Element                | Font      | Size   | Weight | Color                           |
+| ---------------------- | --------- | ------ | ------ | ------------------------------- |
+| Document Title (cover) | Play      | 28pt   | Bold   | #21252e                         |
+| H1 (Section)           | Play      | 18pt   | Bold   | #21252e, 3pt purple left border |
+| H2 (Subsection)        | Play      | 13pt   | Bold   | #424e5a                         |
+| H3 (Sub-sub)           | Play      | 11pt   | Bold   | #424e5a                         |
+| Body                   | Helvetica | 10.5pt | Normal | #21252e                         |
+| Muted/captions         | Helvetica | 9pt    | Normal | #8486a7                         |
+| Code/routes            | Courier   | 9.5pt  | Normal | #424e5a                         |
 
-### 1. Test Accounts Table — Add admin_intake info
 
-Update member1 row description in both EN and NL:
+### Spacing System (strict)
 
-- EN: `"Cabinet Member 1 (admin_dossier + admin_intake)"` → `"Dossier lifecycle + intake — create and manage dossiers"`
-- NL: Same structure, Dutch description
+- After H1: 18pt
+- After H2: 10pt
+- After body paragraph: 6pt
+- Before/after tables: 12pt
+- Before/after callout blocks: 10pt, internal padding 10pt
+- Between major sections: 24pt minimum
 
-### 2. Roles Table — Add admin_intake as distinct role
+### Colors
 
-Add a new row (or split member1's row) to clearly show `admin_intake` as a separate capability:
+- Primary accent: #7e67fe (headings borders, table headers)
+- Primary-light: #E8E4FE (table header fill)
+- Dark text: #21252e
+- Secondary text: #424e5a
+- Muted: #8486a7
+- Table borders: #d8dfe7
+- Tip callout: #f8f9fa bg, #7e67fe left border
+- Important callout: #FFF3E0 bg, #E65100 left border
 
-**EN roles table** — add row:
+## Document Structure (both EN + NL, identical)
 
-```python
-["Intake (admin_intake)", "Create new dossiers; register incoming items", "Cannot edit existing dossiers; cannot manage agenda or decisions", "Dossiers (create only)"]
+### Cover Page
+
+- Logo (programmatic: purple grid icon + "RVM Flow" in Play)
+- Title + subtitle
+- Organization line
+- Version/date block
+- Purple horizontal rule accent
+
+### Content Pages
+
+**Section 1 — System Overview**
+
+- Short intro (3 lines max)
+- What the system does
+- Domain: [https://rvmflow.com](https://rvmflow.com)
+
+**Section 2 — Logging In**
+
+- Step-by-step login instructions
+- Test accounts table (5 rows, fixed columns: Email | Password | Role | Capabilities)
+- All @rvm.local, TestSeed2026!
+
+**Section 3 — Your Role**
+
+- Role matrix table with 6 rows (including admin_intake as distinct row)
+- Explicit dual-role note for member1 (admin_intake + admin_dossier)
+- Columns: Role | Can Do | Cannot Do | Screens
+- IMPORTANT callout: "[member1@rvm.local](mailto:member1@rvm.local) has TWO roles..."
+
+**Section 4 — The Meeting Workflow**
+
+- 10 numbered steps, each with:
+  - Step number (bold)
+  - Action description
+  - Location (route in monospace)
+  - Expected result
+- NOT a compressed table — each step is a styled block
+- Lifecycle callout: Draft → Published → Closed
+
+**Section 5 — Screen-by-Screen Guide**
+
+- Table: Route | Screen Name | Available Actions
+- 8 screens (Dashboard, Dossiers, Dossier Detail, Meetings, Meeting Detail, Decisions, Tasks, Audit Log, Search)
+
+**Section 6 — Common Tasks**
+
+- 6.1 Create a Dossier
+  - Steps + IMPORTANT callout (Proposal requires OPA/ORAG subtype)
+- 6.2 Create a Meeting
+  - Steps
+- 6.3 Add Agenda Item
+  - Steps + TIP callout (only Registered/In Preparation dossiers eligible)
+- 6.4 Manage Tasks
+
+**Section 7 — Rules You Should Know**
+
+- Governance enforcement statements
+- RLS enforcement
+- Decision immutability
+- Audit logging
+- Styled as a governance block with purple border
+
+**Section 8 — System Governance Enforcement** (NEW dedicated section)
+
+- RLS enforces all permissions at database level
+- UI does not override backend rules
+- All state transitions logged immutably
+- Decisions immutable after Chair approval
+- IMPORTANT callout block
+
+**Section 9 — Quick Test Checklist**
+
+- 10-item numbered checklist table
+
+### Headers & Footers
+
+- Header: Small logo + "RVM Flow — Management System" (left), page number (right), thin gray line below
+- Footer: Thin gray line, "RVM-AMS v1.0" (left), "Confidential" / "Vertrouwelijk" (right)
+
+## Table Design (standardized)
+
+- Fixed column widths (calculated per table, never auto)
+- Header: #E8E4FE fill, Play 9.5pt bold
+- Body: Helvetica 9.5pt, alternating #f8f9fa rows
+- Borders: 0.5pt #d8dfe7
+- Cell padding: 6pt horizontal, 4pt vertical
+- Word-wrap enabled (no overflow)
+
+## Callout Block Design
+
+```text
+┌─────────────────────────────────────────┐
+│ 3pt left   IMPORTANT                    │
+│ border     Body text, 10pt padding      │
+│ #E65100    on #FFF3E0 background        │
+└─────────────────────────────────────────┘
+
+┌─────────────────────────────────────────┐
+│ 3pt left   TIP                          │
+│ border     Body text, 10pt padding      │
+│ #7e67fe    on #f8f9fa background        │
+└─────────────────────────────────────────┘
 ```
 
-Update member1 row to show dual-role:
-
-```python
-["Cabinet Member 1 (admin_dossier + admin_intake)", "Create AND edit dossiers; update status; view meetings", "Cannot approve decisions; cannot create meetings", "Dossiers"]
-```
-
-**NL roles table** — same structure, Dutch text.
-
-### 3. Dossier Creation Section — Add proposal subtype constraint
-
-In Section 6 (Common Tasks / Veelvoorkomende Taken), update "Create a Dossier" guide:
-
-**EN**: Add callout block:
-
-```
-IMPORTANT: When Service Type is "Proposal", you MUST select a Proposal Subtype (OPA or ORAG). The form will not submit without it.
-```
-
-**NL**: Same as BELANGRIJK callout.
-
-### 4. Agenda Item Section — Clarify eligibility filter
-
-In Section 6, update "Add Agenda Item" guide:
-
-**EN**: Add note:
-
-```
-TIP: Only dossiers with status "Registered" or "In Preparation" appear in the dossier dropdown. Draft or decided dossiers are not eligible for agenda scheduling.
-```
-
-**NL**: Same as TIP callout.
-
-### 5. Meeting Workflow Section — Confirm lifecycle
-
-In Section 4 (Meeting Workflow), explicitly state:
-
-**EN**:
-
-- Meeting lifecycle: Draft → Published → Closed
-- Secretary (secretary_rvm) can publish AND close meetings
-- Once closed, no further modifications are allowed
-
-**NL**: Same content in Dutch.
-
-### 6. Regenerate Both PDFs
-
-Run updated script → overwrite:
-
-- `/mnt/documents/RVM-AMS_User_Manual.pdf`
-- `/mnt/documents/RVM-AMS_Gebruikershandleiding.pdf`
-
-QA via `pdftoppm`.
-
-## Files Affected
+## Content Sources (authoritative)
 
 
-| File                                               | Change                                                     |
-| -------------------------------------------------- | ---------------------------------------------------------- |
-| `/tmp/gen_manuals_v2.py`                           | Content updates (roles, dossier, agenda, meeting sections) |
-| `/mnt/documents/RVM-AMS_User_Manual.pdf`           | Regenerated                                                |
-| `/mnt/documents/RVM-AMS_Gebruikershandleiding.pdf` | Regenerated                                                |
+| Data          | Source                                                                    |
+| ------------- | ------------------------------------------------------------------------- |
+| Roles         | rls_role_matrix_ams_rvm_core_v_1.md (9 roles defined; 5 in test accounts) |
+| Workflows     | workflow_diagrams_ams_rvm_core_v_1.md (7 workflows)                       |
+| Test accounts | Phase-20/21 seed data (@rvm.local, TestSeed2026!)                         |
+| Routes        | src/routes/index.tsx (8 screens)                                          |
+| Domain        | [https://rvmflow.com](https://rvmflow.com)                                |
 
 
-**0 application code changes. 2 PDFs regenerated.**  
+## Language Handling
+
+Single script with `lang` parameter. All content stored in EN/NL dictionaries. Structure, formatting, table widths, spacing are identical — only text differs.  
   
-**NOTE — Governance Traceability Enforcement**
+**NOTE — Mandatory Visual QA Gate (BLOCKING)**
 
-Before regenerating manuals, enforce alignment with authoritative AMS-RVM core documents:
+Before finalizing PDFs, enforce a visual QA checkpoint:
 
-1. Cross-check all documented roles against:
+1. Generate preview images using pdftoppm for:
 
-   - rls_role_matrix_ams_rvm_core_v_[1.md](http://1.md)
+   - Cover page
 
-   Ensure admin_intake is either:
+   - Roles table page
 
-   a) Explicitly defined in RLS, OR
+   - Workflow section
 
-   b) Documented as a derived/secondary capability (not a primary governance role)
+   - One table-heavy page
 
-2. Validate workflow statements against:
+2. Validate:
 
-   - workflow_diagrams_ams_rvm_core_v_[1.md](http://1.md)
+   - No text overflow
 
-   Confirm:
+   - No broken table wrapping
 
-   - Draft → Published → Closed transitions match status_transitions table
+   - Consistent spacing between sections
 
-   - Secretary permissions are enforced at data layer (not UI only)
+   - Callout blocks render correctly
 
-3. Add clarification in manuals:
+   - EN/NL documents visually identical in structure
 
-   - System behavior is enforced via backend governance (RLS + DB constraints)
+3. If ANY issue found:
 
-   - UI visibility does not override governance rules
+   - Fix in script
 
-4. Ensure auditability statement remains accurate:
+   - Regenerate PDFs
 
-   - Any new role (admin_intake) must not bypass audit logging or decision immutability
+   - Repeat QA
 
-This ensures manuals remain audit-proof and governance-compliant, not just UI-aligned.
+4. Only finalize when:
+
+   → Document is visually comparable to a government-issued manual
+
+This QA step is MANDATORY and cannot be skipped.
+
+## Implementation
+
+1. Write complete `/tmp/gen_manuals_v4.py` (~600-800 lines)
+2. Register Play font (download TTF or use built-in fallback)
+3. Generate EN PDF → `/mnt/documents/RVM-AMS_User_Manual.pdf`
+4. Generate NL PDF → `/mnt/documents/RVM-AMS_Gebruikershandleiding.pdf`
+5. QA: `pdftoppm` → visual inspection of cover + 3 content pages per manual
+6. Fix any issues found
+7. Final verification: no lovable.app references, no testpass123, tables aligned
+
+**Total: 0 application code changes. 2 PDFs regenerated from clean structure.**
